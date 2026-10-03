@@ -216,9 +216,9 @@ export default function TgEntryPage() {
   const openBotForNewToken = () => {
     const wa = window.Telegram?.WebApp;
     try {
-      wa?.openTelegramLink?.("https://t.me/vaksinahrbot?start=kirish");
+      wa?.openTelegramLink?.("https://t.me/bordo_hrbot?start=kirish");
     } catch {
-      window.open("https://t.me/vaksinahrbot", "_blank");
+      window.open("https://t.me/bordo_hrbot", "_blank");
     }
   };
 

@@ -144,8 +144,8 @@ export const HELP_FAQS: HelpFaq[] = [
       "Войти в систему можно двумя способами:\n• Через Telegram-бота — после логина/пароля выдаёт ссылку входа.\n• Через официальный сайт.",
     links: [
       {
-        label: "@vaksinahrbot",
-        url: "https://t.me/vaksinahrbot",
+        label: "@bordo_hrbot",
+        url: "https://t.me/bordo_hrbot",
         hintUz: "Telegram bot",
         hintRu: "Telegram-бот",
       },

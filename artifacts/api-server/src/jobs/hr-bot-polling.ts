@@ -5,6 +5,8 @@ import {
   getMe,
   getUpdates,
   isTelegramConfigured,
+  miniAppEntryUrl,
+  setChatMenuWebApp,
   setMyCommands,
   shouldHrBotUsePolling,
 } from "../lib/telegram";
@@ -69,6 +71,12 @@ export function startHrBotPollingJob() {
       username = me.username ? `@${me.username}` : "";
     } catch {
       username = "";
+    }
+    try {
+      const menuUrl = miniAppEntryUrl();
+      if (menuUrl?.startsWith("https://")) await setChatMenuWebApp(menuUrl);
+    } catch (err) {
+      logger.warn({ err }, "BORDO HR bot menyu tugmasi yozilmadi");
     }
     logger.info({ username }, "BORDO HR bot ishga tushdi — login va parolni qabul qiladi");
     for (;;) {

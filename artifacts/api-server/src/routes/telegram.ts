@@ -422,9 +422,6 @@ async function sendLoggedInCard(
   const markup = { inline_keyboard: rows };
 
   let text = formatUserCard(user);
-  if (loginUrl && !loginUrl.startsWith("https://")) {
-    text += `\n\nHavola ochilmasa, shu yerga bosing:\n${loginUrl}`;
-  }
   if (!loginUrl && !davomatUrl) {
     text +=
       "\n\n⚠️ <b>PUBLIC_APP_URL</b> sozlanmagan — Mini App havolasi yaratilmadi. Admin Vercel env ga qo‘shishi kerak.";

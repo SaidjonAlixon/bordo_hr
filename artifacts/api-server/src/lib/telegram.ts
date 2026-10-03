@@ -1,5 +1,4 @@
 import crypto from "node:crypto";
-import os from "node:os";
 
 const TG_API = "https://api.telegram.org";
 
@@ -63,34 +62,22 @@ export function publicAppUrl(): string {
   return withProto.replace(/\/$/, "");
 }
 
-function firstLanIpv4(): string | null {
-  const nets = os.networkInterfaces();
-  for (const list of Object.values(nets)) {
-    for (const net of list || []) {
-      if (net.family !== "IPv4" || net.internal) continue;
-      if (net.address.startsWith("169.254.")) continue;
-      return net.address;
-    }
-  }
-  return null;
-}
+/** Telegram Mini App faqat HTTPS saytni ichkarida ochadi. Lokal manzil link bo‘lib qoladi. */
+const LIVE_MINI_APP_URL = "https://bordohr.vercel.app";
 
-/** Botdagi «ochish» havolasi. localhost telefon uchun yaramaydi — tarmoq IP si ishlatiladi. */
+/** Botdagi «ochish» havolasi — doim jonli sayt, telefon link ko‘rsatmasin. */
 export function telegramOpenBase(): string {
   const pub = publicAppUrl();
-  const lan = firstLanIpv4();
-  if (!pub) return lan ? `http://${lan}:3000` : "";
   try {
-    const u = new URL(pub);
-    const local = u.hostname === "localhost" || u.hostname === "127.0.0.1";
-    if (local && lan) {
-      u.hostname = lan;
-      return u.toString().replace(/\/$/, "");
+    if (pub) {
+      const u = new URL(pub);
+      const local = u.hostname === "localhost" || u.hostname === "127.0.0.1" || u.protocol !== "https:";
+      if (!local) return pub.replace(/\/$/, "");
     }
   } catch {
-    /* pastda */
+    /* jonli sayt */
   }
-  return pub;
+  return LIVE_MINI_APP_URL;
 }
 
 /** Lokal manzilda webhook ishlamaydi — bot getUpdates bilan tinglanadi. */
@@ -224,6 +211,17 @@ export async function setMyCommands(
   commands: Array<{ command: string; description: string }>,
 ) {
   return tgCall("setMyCommands", { commands });
+}
+
+/** Chat pastidagi menyu tugmasi — saytni Telegram ichida ochadi. */
+export async function setChatMenuWebApp(url: string, text = "Platformaga kirish") {
+  return tgCall("setChatMenuButton", {
+    menu_button: {
+      type: "web_app",
+      text,
+      web_app: { url },
+    },
+  });
 }
 
 export function newAuthToken(): string {
@@ -379,7 +377,7 @@ export function escapeHtml(s: string): string {
 
 /** Telegram Mini App kirish havolasi (token ixtiyoriy) */
 export function miniAppEntryUrl(opts?: { next?: string; token?: string }): string | null {
-  const base = publicAppUrl();
+  const base = telegramOpenBase();
   if (!base) return null;
   const u = new URL(`${base}/tg`);
   if (opts?.next) u.searchParams.set("next", opts.next);
