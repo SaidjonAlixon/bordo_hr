@@ -1,0 +1,57 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "pnpm -w install --no-frozen-lockfile --prod=false",
+  "buildCommand": "pnpm -w run build:vercel",
+  "outputDirectory": "artifacts/vaksina-hr/dist/public",
+  "framework": null,
+  "functions": {
+    "api/index.mjs": {
+      "maxDuration": 60,
+      "includeFiles": "{artifacts/api-server/dist/**,node_modules/pg/**,node_modules/sharp/**,node_modules/@img/**}"
+    }
+  },
+  "headers": [
+    {
+      "source": "/",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+    },
+    {
+      "source": "/index.html",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    }
+  ],
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/((?!api/|assets/).*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/jobs/vacancy-reminders",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/jobs/davomat-reminders",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/jobs/task-reminders",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/jobs/coordinator-presence",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/jobs/zone-presence",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/jobs/filial-recruiter-monitor",
+      "schedule": "0 */3 * * *"
+    }
+  ]
+}
