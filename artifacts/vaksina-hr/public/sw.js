@@ -43,8 +43,8 @@ self.addEventListener("push", (event) => {
     Promise.all([
       self.registration.showNotification(data.title || "VAKSINA HR", {
         body: data.body || "",
-        icon: "/faviconni.png",
-        badge: "/faviconni.png",
+        icon: "/faviconn_hr.png",
+        badge: "/faviconn_hr.png",
         tag: data.tag || "vaksina-hr",
         renotify: true,
         requireInteraction: true,

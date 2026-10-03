@@ -177,25 +177,28 @@ export default function Login() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-[#eef1f5] p-4 dark:from-slate-950 dark:to-slate-900 dark:bg-gradient-to-br">
+    <div className="relative flex min-h-screen items-center justify-center bg-[#f7eef1] p-4 dark:from-[#1c0c12] dark:to-[#2a1018] dark:bg-gradient-to-br">
       <div className="absolute right-4 top-4 flex gap-2">
         <LanguageSwitcher />
         <ThemeToggle />
       </div>
       <div className="flex w-full max-w-md flex-col items-center gap-5">
-        <div className="flex flex-col items-center gap-2">
-          <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#0B3A5C] text-2xl font-bold text-white">
-            B
-          </span>
-          <p className="text-2xl font-bold tracking-[0.22em] text-[#0B3A5C]">BORDO</p>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Kompaniya HR</p>
+        <div className="flex w-full justify-center">
+          <img
+            src={`${import.meta.env.BASE_URL}bordo_hr.png`}
+            alt="BORDO HR"
+            width={2172}
+            height={724}
+            decoding="async"
+            className="h-auto w-full object-contain drop-shadow-[0_14px_32px_rgba(185,28,28,0.28)]"
+          />
         </div>
-        <Card className="w-full border-t-[3px] border-t-[#1e3a8a] shadow-lg dark:border-t-primary">
+        <Card className="w-full border-t-[3px] border-t-[#6e1632] shadow-lg dark:border-t-[#a3284c]">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-bold tracking-tight text-[#1e3a8a] dark:text-foreground">
+            <CardTitle className="text-2xl font-bold tracking-tight text-[#6e1632] dark:text-[#f3d5de]">
               {t('login.title')}
             </CardTitle>
-            <CardDescription>{t('login.subtitle')}</CardDescription>
+            <CardDescription className="text-[#8b1e3f]/75 dark:text-[#e7c5d0]">{t('login.subtitle')}</CardDescription>
           </CardHeader>
           <form onSubmit={(e) => void handleLogin(e)}>
             <CardContent className="space-y-4">
@@ -207,7 +210,7 @@ export default function Login() {
                   value={login}
                   onChange={(e) => setLogin(e.target.value)}
                   placeholder={t('login.loginPlaceholder')}
-                  className="bg-slate-50 dark:bg-background"
+                  className="border-[#e7c5d0] bg-[#f8e8ed] focus-visible:ring-[#6e1632] dark:border-[#6e1632] dark:bg-[#2a1018] [&:-webkit-autofill]:shadow-[inset_0_0_0px_1000px_#f8e8ed] [&:-webkit-autofill]:[-webkit-text-fill-color:#4a1224]"
                 />
               </div>
               <div className="space-y-2">
@@ -220,7 +223,7 @@ export default function Login() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={t('login.passwordPlaceholder')}
-                    className="bg-slate-50 pr-10 dark:bg-background"
+                    className="border-[#e7c5d0] bg-[#f8e8ed] pr-10 focus-visible:ring-[#6e1632] dark:border-[#6e1632] dark:bg-[#2a1018] [&:-webkit-autofill]:shadow-[inset_0_0_0px_1000px_#f8e8ed] [&:-webkit-autofill]:[-webkit-text-fill-color:#4a1224]"
                   />
                   <button
                     type="button"
@@ -234,7 +237,7 @@ export default function Login() {
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-3">
-              <Button type="submit" className="w-full bg-[#1e3a8a] hover:bg-[#1e3a8a]/90" disabled={pending}>
+              <Button type="submit" className="w-full bg-[#6e1632] text-white hover:bg-[#8b1e3f]" disabled={pending}>
                 {pending ? t('login.submitting') : t('login.submit')}
               </Button>
               {HELP_ASSISTANT_ENABLED ? (

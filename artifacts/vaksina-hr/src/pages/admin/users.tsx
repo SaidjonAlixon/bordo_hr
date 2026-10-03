@@ -15,7 +15,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
 import { Checkbox } from '../../components/ui/checkbox';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover';
 import {
   Dialog,
@@ -35,7 +35,7 @@ import {
   UZ_PHONE_HINT,
 } from '../../lib/phone';
 import { userRoleLabel, canManageUsers, canDeleteUsers, canChangeStaffStatus, isLimitedOfficeStaffRole, isReviziyaRole, isStajyor } from '../../lib/roles';
-import { BORDO_ROLES } from '../../lib/bordo';
+import { BORDO_DEPARTMENTS, BORDO_ROLES } from '../../lib/bordo';
 import { useI18n } from '../../i18n/I18nProvider';
 import { dismissUser } from '../../lib/dismissed-staff-api';
 import { Link, useLocation } from 'wouter';
@@ -49,11 +49,11 @@ const ROLE_DEPARTMENT: Record<string, string> = Object.fromEntries(
 
 const DEPT_DEFAULT_ROLE: Record<string, string> = {
   rahbariyat: "director",
-  showroom: "showroom",
+  "showroom hodimlari": "showroom",
   "savdo bo'limi": "sotuv_menejer",
-  "savdo agentlari": "savdo_agenti",
+  "savdo agentlari bo'limi": "savdo_agenti",
   "ombor bo'limi": "ombor_rahbar",
-  "yuklash-tushirish va yig'uv": "yuk_xodim",
+  "yuklash-tushirish va yig'uv bo'limi": "yuk_xodim",
   "xo'jalik bo'limi": "oshpaz",
 };
 
@@ -165,10 +165,17 @@ export default function AdminUsersPage() {
   const [dismissReason, setDismissReason] = useState('');
   const [dismissing, setDismissing] = useState(false);
 
-  const deptChoices = useMemo(
-    () => [...(departments ?? [])].sort((a, b) => a.name.localeCompare(b.name, 'uz')),
-    [departments],
-  );
+  const deptChoices = useMemo(() => {
+    const rows = [...(departments ?? [])];
+    const bordoOrder = BORDO_DEPARTMENTS.map((name) => normDept(name));
+    const rank = (name: string) => {
+      const i = bordoOrder.indexOf(normDept(name));
+      return i < 0 ? 100 : i;
+    };
+    return rows.sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name, 'uz'));
+  }, [departments]);
+
+  const positionRoles = BORDO_ROLES.filter((r) => r.value !== 'admin' && r.value !== 'xodim');
 
   useEffect(() => {
     if (createOpen || editOpen) void refetchDepartments();
@@ -184,7 +191,7 @@ export default function AdminUsersPage() {
       setRolePick(next);
       return;
     }
-    setRole('');
+    setRole('xodim');
     setRolePick(`dept:${id}`);
   }
 
@@ -904,21 +911,28 @@ export default function AdminUsersPage() {
                     <SelectValue placeholder="Rol yoki bo‘lim" />
                   </SelectTrigger>
                   <SelectContent position="popper" className="z-[100] max-h-80">
-                    {deptChoices.length > 0 ? (
+                    {BORDO_DEPARTMENTS.map((dept) => {
+                      const items = positionRoles.filter((r) => r.department === dept);
+                      if (!items.length) return null;
+                      return (
+                        <SelectGroup key={dept}>
+                          <SelectLabel>{dept}</SelectLabel>
+                          {items.map((r) => (
+                            <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      );
+                    })}
+                    {deptChoices.some((d) => !BORDO_DEPARTMENTS.some((name) => normDept(name) === normDept(d.name))) ? (
                       <SelectGroup>
-                        <SelectLabel>Bo‘limlar</SelectLabel>
-                        {deptChoices.map((d) => (
-                          <SelectItem key={`dept-${d.id}`} value={`dept:${d.id}`}>{d.name}</SelectItem>
-                        ))}
+                        <SelectLabel>Qo‘shilgan bo‘limlar</SelectLabel>
+                        {deptChoices
+                          .filter((d) => !BORDO_DEPARTMENTS.some((name) => normDept(name) === normDept(d.name)))
+                          .map((d) => (
+                            <SelectItem key={`dept-${d.id}`} value={`dept:${d.id}`}>{d.name}</SelectItem>
+                          ))}
                       </SelectGroup>
                     ) : null}
-                    <SelectSeparator />
-                    <SelectGroup>
-                      <SelectLabel>Rollar</SelectLabel>
-                      {ROLES.map((r) => (
-                        <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                      ))}
-                    </SelectGroup>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
@@ -1002,9 +1016,12 @@ export default function AdminUsersPage() {
                     <SelectValue placeholder="Rolni tanlang" />
                   </SelectTrigger>
                   <SelectContent position="popper" className="z-[100]">
-                    {ROLES.map((r) => (
+                    {positionRoles.map((r) => (
                       <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
                     ))}
+                    {role && !positionRoles.some((r) => r.value === role) ? (
+                      <SelectItem value={role}>{ROLES.find((r) => r.value === role)?.label || userRoleLabel(role) || role}</SelectItem>
+                    ) : null}
                   </SelectContent>
                 </Select>
               </div>

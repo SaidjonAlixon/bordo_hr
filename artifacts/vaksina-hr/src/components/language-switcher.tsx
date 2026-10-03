@@ -90,7 +90,7 @@ export function LanguageSwitcher({ className, size = "sm" }: Props) {
     <div
       className={cn(
         "inline-flex items-center gap-0.5 rounded-full p-0.5",
-        "border border-white/15 bg-[#312e81]/90 shadow-[0_8px_18px_-12px_rgba(91,33,182,0.85)] backdrop-blur-md",
+        "border border-white/15 bg-[#6e1632]/95 shadow-[0_8px_18px_-12px_rgba(110,22,50,0.85)] backdrop-blur-md",
         className,
       )}
       role="group"

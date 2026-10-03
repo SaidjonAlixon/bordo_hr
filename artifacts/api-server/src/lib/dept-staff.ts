@@ -42,7 +42,7 @@ const NAMED_HEAD_CREATABLE: Record<string, readonly string[]> = {
   rivojlantirish_rahbar: ["rivojlantirish"],
   mamuriy_rahbar: ["mamuriy", "komunalniy", "farrosh", "mexanik"],
   gpp_rahbar: ["gpp"],
-  ombor_rahbar: ["ombor"],
+  ombor_rahbar: ["zakupchi", "priyomkachi", "ombor"],
   oshpaz_rahbar: ["oshpaz"],
   marketing_rahbar: ["marketing"],
 };

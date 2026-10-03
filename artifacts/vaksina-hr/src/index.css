@@ -168,13 +168,12 @@
 }
 
 .app-sidebar {
-  color: #0f172a;
+  color: #4a1224;
   background:
-    radial-gradient(ellipse 90% 50% at 0% -10%, rgba(109, 94, 252, 0.12), transparent 55%),
-    radial-gradient(ellipse 70% 40% at 100% 20%, rgba(59, 130, 246, 0.08), transparent 50%),
-    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 45%, #eef2f7 100%);
-  border-right: 1px solid rgb(15 23 42 / 0.08);
-  box-shadow: 8px 0 40px -18px rgba(15, 23, 42, 0.18);
+    radial-gradient(ellipse 90% 40% at 0% 0%, rgba(139, 30, 63, 0.08), transparent 55%),
+    linear-gradient(180deg, #fbf6f7 0%, #f7eef1 55%, #f3e6ea 100%);
+  border-right: 1px solid rgb(122 24 52 / 0.12);
+  box-shadow: 8px 0 40px -18px rgba(92, 16, 36, 0.22);
 }
 
 .app-sidebar-logo {
@@ -187,37 +186,30 @@
 }
 
 .app-sidebar-brand {
-  background:
-    radial-gradient(ellipse 80% 90% at 10% 40%, rgba(45, 212, 191, 0.08), transparent 55%),
-    radial-gradient(ellipse 70% 80% at 95% 50%, rgba(56, 189, 248, 0.06), transparent 50%),
-    linear-gradient(125deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
-  border-bottom: 1px solid rgb(15 23 42 / 0.08);
+  background: linear-gradient(180deg, #8d2144 0%, #6e1632 100%);
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
 }
 
 .dark .app-sidebar {
-  color: #f8fafc;
+  color: #f8e8ee;
   background:
-    radial-gradient(ellipse 90% 50% at 0% -10%, rgba(109, 94, 252, 0.32), transparent 55%),
-    radial-gradient(ellipse 70% 40% at 100% 20%, rgba(59, 130, 246, 0.14), transparent 50%),
-    linear-gradient(180deg, #0f1326 0%, #0b1020 45%, #080c18 100%);
+    radial-gradient(ellipse 90% 40% at 0% 0%, rgba(139, 30, 63, 0.35), transparent 55%),
+    linear-gradient(180deg, #2a1018 0%, #1c0c12 55%, #14080c 100%);
   border-color: rgb(255 255 255 / 0.06);
   box-shadow: 8px 0 40px -20px rgba(0, 0, 0, 0.65);
 }
 
 .dark .app-sidebar-brand {
-  background:
-    radial-gradient(ellipse 80% 90% at 10% 40%, rgba(45, 212, 191, 0.08), transparent 55%),
-    radial-gradient(ellipse 70% 80% at 95% 50%, rgba(56, 189, 248, 0.06), transparent 50%),
-    linear-gradient(125deg, #141a33 0%, #101628 50%, #0c1224 100%);
+  background: linear-gradient(180deg, #6e1632 0%, #4e1024 100%);
   border-bottom: 1px solid rgb(255 255 255 / 0.08);
 }
 
 .app-sidebar-nav-item {
-  @apply text-slate-700 hover:bg-indigo-50 hover:text-slate-950;
+  @apply text-[#5c2436] hover:bg-[#f6e4ea] hover:text-[#4a1224];
 }
 
 .app-sidebar-nav-item-active {
-  @apply bg-indigo-100 text-indigo-950 shadow-[inset_0_0_0_1px_rgba(99,102,241,0.35)] font-semibold;
+  @apply bg-[#f3d5de] text-[#6e1632] shadow-[inset_0_0_0_1px_rgba(139,30,63,0.28)] font-semibold;
 }
 
 .dark .app-sidebar-nav-item {
@@ -245,16 +237,16 @@
 }
 
 .app-sidebar-section-trigger {
-  color: #1e293b;
+  color: #4a1224;
   font-weight: 600;
 }
 
 .app-sidebar-section-trigger:hover {
-  background: #eef2ff;
+  background: #f6e4ea;
 }
 
 .app-sidebar-section-trigger-open {
-  background: #e0e7ff;
+  background: #f3d5de;
 }
 
 .dark .app-sidebar-section-trigger {
@@ -271,20 +263,20 @@
 }
 
 .app-sidebar-section-icon {
-  background: linear-gradient(145deg, #8575ff 0%, #5b4cdb 100%);
+  background: linear-gradient(145deg, #a3284c 0%, #7a1834 100%);
   color: #fff;
   box-shadow:
-    0 6px 12px -8px rgba(91, 76, 219, 0.85),
+    0 6px 12px -8px rgba(110, 22, 50, 0.85),
     inset 0 1px 0 rgb(255 255 255 / 0.28);
 }
 
 .app-sidebar-nested-panel {
   border-radius: 0.85rem;
-  background: linear-gradient(180deg, rgb(15 23 42 / 0.04) 0%, rgb(15 23 42 / 0.02) 100%);
-  border: 1px solid rgb(15 23 42 / 0.08);
+  background: linear-gradient(180deg, #fff 0%, #fff7f8 100%);
+  border: 1px solid rgb(139 30 63 / 0.1);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.6),
-    0 10px 24px -18px rgb(15 23 42 / 0.2);
+    inset 0 1px 0 rgb(255 255 255 / 0.8),
+    0 10px 24px -18px rgb(110 22 50 / 0.25);
   backdrop-filter: blur(10px);
 }
 
@@ -297,20 +289,20 @@
 }
 
 .app-sidebar-nested-item {
-  color: #334155;
+  color: #5c2436;
   font-weight: 500;
 }
 
 .app-sidebar-nested-item:hover {
-  background: #eef2ff;
-  color: #1e1b4b;
+  background: #f8e8ed;
+  color: #4a1224;
 }
 
 .app-sidebar-nested-item-active {
-  background: linear-gradient(90deg, rgb(99 102 241 / 0.22) 0%, rgb(99 102 241 / 0.08) 100%);
-  color: #1e1b4b;
+  background: linear-gradient(90deg, rgb(139 30 63 / 0.16) 0%, rgb(139 30 63 / 0.05) 100%);
+  color: #6e1632;
   font-weight: 700;
-  box-shadow: inset 3px 0 0 0 #6366f1;
+  box-shadow: inset 3px 0 0 0 #8b1e3f;
 }
 
 .dark .app-sidebar-nested-item {
@@ -322,10 +314,10 @@
 }
 
 .dark .app-sidebar-nested-item-active {
-  background: linear-gradient(90deg, rgb(124 109 255 / 0.28) 0%, rgb(124 109 255 / 0.1) 100%);
+  background: linear-gradient(90deg, rgb(190 70 105 / 0.32) 0%, rgb(190 70 105 / 0.1) 100%);
   color: #fff;
   font-weight: 600;
-  box-shadow: inset 3px 0 0 0 #a78bfa;
+  box-shadow: inset 3px 0 0 0 #e8a0b4;
 }
 
 .app-sidebar-help-card {
@@ -342,9 +334,9 @@
 }
 
 .app-header-help-chip {
-  background: linear-gradient(135deg, #4338ca 0%, #6d28d9 55%, #5b21b6 100%);
+  background: linear-gradient(135deg, #8b1e3f 0%, #6e1632 55%, #541228 100%);
   box-shadow:
-    0 8px 18px -12px rgba(91, 33, 182, 0.85),
+    0 8px 18px -12px rgba(110, 22, 50, 0.85),
     inset 0 1px 0 rgb(255 255 255 / 0.18);
 }
 
@@ -353,7 +345,7 @@
 }
 
 .app-sidebar-help-btn {
-  background: linear-gradient(135deg, #7c6dff 0%, #5b4cdb 100%);
+  background: linear-gradient(135deg, #a3284c 0%, #6e1632 100%);
 }
 
 .app-sidebar-help-btn:hover {
@@ -361,15 +353,15 @@
 }
 
 .app-sidebar-collapse-btn {
-  background: #eef2ff;
-  border: 1px solid #c7d2fe;
-  color: #312e81;
+  background: #f8e8ed;
+  border: 1px solid #e7c5d0;
+  color: #6e1632;
   font-weight: 600;
 }
 
 .app-sidebar-collapse-btn:hover {
-  background: #e0e7ff;
-  color: #1e1b4b;
+  background: #f3d5de;
+  color: #4a1224;
 }
 
 .dark .app-sidebar-collapse-btn {
@@ -386,8 +378,8 @@
 .app-sidebar-profile-card {
   @apply rounded-xl p-2;
   background: #ffffff;
-  border: 1px solid #cbd5e1;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+  border: 1px solid #e7c5d0;
+  box-shadow: 0 1px 2px rgb(110 22 50 / 0.06);
   overflow: hidden;
 }
 
@@ -399,13 +391,13 @@
 
 .app-sidebar-profile-avatar {
   @apply flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-[11px] font-bold;
-  background: linear-gradient(135deg, #7c6dff 0%, #38bdf8 100%);
+  background: linear-gradient(135deg, #a3284c 0%, #6e1632 100%);
   color: #fff;
   border: none;
 }
 
 .dark .app-sidebar-profile-avatar {
-  background: linear-gradient(135deg, #7c6dff 0%, #38bdf8 100%);
+  background: linear-gradient(135deg, #a3284c 0%, #6e1632 100%);
   color: #fff;
   border: none;
 }
@@ -433,15 +425,15 @@
 
 .app-sidebar-profile-action {
   @apply shrink-0 rounded-md p-1.5 transition-colors;
-  border: 1px solid #c7d2fe;
-  color: #4338ca;
-  background: #eef2ff;
+  border: 1px solid #e7c5d0;
+  color: #8b1e3f;
+  background: #f8e8ed;
 }
 
 .app-sidebar-profile-action:hover {
-  color: #1e1b4b;
-  background: #e0e7ff;
-  border-color: #a5b4fc;
+  color: #4a1224;
+  background: #f3d5de;
+  border-color: #d7a3b4;
 }
 
 .dark .app-sidebar-profile-action {
@@ -461,11 +453,11 @@
 }
 
 .app-sidebar-face-id-btn--pending {
-  @apply border border-indigo-300 bg-indigo-50 text-indigo-800 hover:bg-indigo-100;
+  @apply border border-[#e7c5d0] bg-[#f8e8ed] text-[#6e1632] hover:bg-[#f3d5de];
 }
 
 .dark .app-sidebar-face-id-btn--pending {
-  @apply border-violet-300/30 bg-violet-500/15 text-violet-100 hover:bg-violet-500/25;
+  @apply border-[#e8a0b4]/30 bg-[#8b1e3f]/20 text-[#f8e8ee] hover:bg-[#8b1e3f]/30;
 }
 
 .app-sidebar-face-id-btn--linked {
@@ -1208,10 +1200,10 @@
 }
 
 .dept-hero-primary {
-  @apply bg-gradient-to-br from-[#0b3a5c] via-[#0f4a73] to-[#163a55];
+  @apply bg-gradient-to-br from-[#8b1e3f] via-[#6e1632] to-[#4a1224];
 }
 .dark .dept-hero-primary {
-  @apply from-[#06101c] via-[#0b3a5c] to-[#0f2137];
+  @apply from-[#4a1224] via-[#6e1632] to-[#2a1018];
 }
 
 .dept-hero-glow {

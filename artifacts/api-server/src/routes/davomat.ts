@@ -158,6 +158,7 @@ import { punchErrorHelp, resolvePunchErrorCode } from "../lib/punch-error-help";
 import {
   employeeHasMobileAnywhere,
 } from "../lib/mobile-attendance";
+import { applyBordoAttendanceForEmployee, resolveBordoPlaceForUser } from "../lib/bordo-places";
 
 const router: IRouter = Router();
 
@@ -174,7 +175,8 @@ export const DAVOMAT_SITE_LNG = 69 + 16 / 60 + 22.9 / 3600; // ≈ 69.273028
 export const DAVOMAT_SITE_LABEL = "41°13'09.3\"N 69°16'22.9\"E";
 const FACE_DESCRIPTOR_LEN = 128;
 
-function geofenceMetersForKind(kind: "branch" | "office"): number {
+function geofenceMetersForKind(kind: "branch" | "office", radiusMeters?: number | null): number {
+  if (radiusMeters != null && Number.isFinite(radiusMeters) && radiusMeters > 0) return Math.round(radiusMeters);
   return kind === "office" ? DAVOMAT_OFFICE_GEOFENCE_METERS : DAVOMAT_GEOFENCE_METERS;
 }
 
@@ -2387,6 +2389,7 @@ type DavomatPoint = {
   longitude: number;
   label: string;
   kind: "branch" | "office";
+  radiusMeters?: number;
 };
 
 function coordsFromEmp(row: {
@@ -2410,13 +2413,32 @@ async function resolveDavomatPoint(emp: WorkplaceEmp, userRole: string): Promise
   | { ok: false; status: number; body: Record<string, unknown> }
 > {
   if (!usesBranchDavomat(userRole, emp.orgRole)) {
+    try {
+      await applyBordoAttendanceForEmployee(emp, userRole);
+    } catch (err) {
+      console.error("bordo shift apply:", err);
+    }
+    const place = await resolveBordoPlaceForUser(emp.userId, userRole).catch(() => null);
+    if (place && place.latitude != null && place.longitude != null) {
+      return {
+        ok: true,
+        point: {
+          latitude: place.latitude,
+          longitude: place.longitude,
+          label: place.name,
+          kind: "office",
+          radiusMeters: place.radiusMeters,
+        },
+      };
+    }
     return {
       ok: true,
       point: {
         latitude: DAVOMAT_SITE_LAT,
         longitude: DAVOMAT_SITE_LNG,
-        label: `Asosiy ofis · ${DAVOMAT_SITE_LABEL}`,
+        label: place?.name || `Asosiy ofis · ${DAVOMAT_SITE_LABEL}`,
         kind: "office",
+        radiusMeters: place?.radiusMeters || DAVOMAT_OFFICE_GEOFENCE_METERS,
       },
     };
   }
@@ -3302,7 +3324,7 @@ async function geoGate(
     if (!resolved.ok) return resolved;
     const point = resolved.point;
     const distanceMeters = haversineMeters(latitude, longitude, point.latitude, point.longitude);
-    const effectiveRadius = geofenceMetersForKind(point.kind);
+    const effectiveRadius = geofenceMetersForKind(point.kind, point.radiusMeters);
     const GEOFENCE_SLACK_M = 8;
     if (!mobileAnywhere && distanceMeters > effectiveRadius + GEOFENCE_SLACK_M) {
       const remainMeters = Math.max(0, distanceMeters - effectiveRadius);
@@ -3310,7 +3332,7 @@ async function geoGate(
         ok: false,
         status: 403,
         body: {
-          error: `Hududdan tashqaridasiz (asosiy ofis): ${distanceMeters} m. Ruxsat faqat ${effectiveRadius} m. Yana ${remainMeters} m yaqinlashishingiz kerak.`,
+          error: `Hududdan tashqaridasiz (${point.label}): ${distanceMeters} m. Ruxsat faqat ${effectiveRadius} m. Yana ${remainMeters} m yaqinlashishingiz kerak.`,
           code: "outside_geofence",
           distanceMeters,
           remainMeters,
@@ -3491,7 +3513,7 @@ async function geoGate(
   if (!resolved.ok) return resolved;
   const point = resolved.point;
   const distanceMeters = haversineMeters(latitude, longitude, point.latitude, point.longitude);
-  const effectiveRadius = geofenceMetersForKind(point.kind);
+  const effectiveRadius = geofenceMetersForKind(point.kind, point.radiusMeters);
 
   const legacyKeys = parseShiftKeys(emp.shiftType, emp.shiftLabel).filter(
     (k): k is "one" | "two" | "three" => k === "one" || k === "two" || k === "three",
@@ -4627,7 +4649,7 @@ router.get("/davomat/me/workplace", requireAuth, async (req: AuthRequest, res): 
     const scheduleOverride = await resolveScheduleOverride(emp.id, workDate);
 
     res.json({
-      allowedMeters: geofenceMetersForKind(point.kind),
+      allowedMeters: geofenceMetersForKind(point.kind, point.radiusMeters),
       mobileAnywhere,
       fieldBranchPunch: fieldBranchPunch || undefined,
       coordinatorFieldPunch: coordinatorFieldPunch || undefined,
@@ -4907,7 +4929,7 @@ router.get("/davomat/me/status", requireAuth, async (req: AuthRequest, res): Pro
     let allowedMeters = DAVOMAT_OFFICE_GEOFENCE_METERS;
     if (emp && user) {
       const resolved = await resolveDavomatPoint(emp, user.role);
-      if (resolved.ok) allowedMeters = geofenceMetersForKind(resolved.point.kind);
+      if (resolved.ok) allowedMeters = geofenceMetersForKind(resolved.point.kind, resolved.point.radiusMeters);
     }
 
     res.json({
@@ -7050,7 +7072,7 @@ router.post("/davomat/qr-punch", requireAuth, async (req: AuthRequest, res): Pro
           const resolved = await resolveDavomatPoint(emp, user.role);
           if (resolved.ok) {
             distanceMeters = haversineMeters(latitude, longitude, resolved.point.latitude, resolved.point.longitude);
-            allowedMeters = geofenceMetersForKind(resolved.point.kind);
+            allowedMeters = geofenceMetersForKind(resolved.point.kind, resolved.point.radiusMeters);
           }
         } catch {
           /* ignore */
@@ -7218,22 +7240,29 @@ router.post("/davomat/qr-punch", requireAuth, async (req: AuthRequest, res): Pro
       mobileAnywhere = false;
     }
     const skipOfficeGeofence = adminAnywhere || mobileAnywhere;
+    const officePoint = await resolveDavomatPoint(emp, user.role).catch(() => null);
+    const siteLat = officePoint?.ok ? officePoint.point.latitude : DAVOMAT_SITE_LAT;
+    const siteLng = officePoint?.ok ? officePoint.point.longitude : DAVOMAT_SITE_LNG;
+    const siteLabel = officePoint?.ok ? officePoint.point.label : `Asosiy ofis · ${DAVOMAT_SITE_LABEL}`;
+    const siteRadius = officePoint?.ok
+      ? geofenceMetersForKind(officePoint.point.kind, officePoint.point.radiusMeters)
+      : DAVOMAT_OFFICE_GEOFENCE_METERS;
 
-    let latitude = hasGps ? latitudeRaw : DAVOMAT_SITE_LAT;
-    let longitude = hasGps ? longitudeRaw : DAVOMAT_SITE_LNG;
+    let latitude = hasGps ? latitudeRaw : siteLat;
+    let longitude = hasGps ? longitudeRaw : siteLng;
     let distanceMeters = 0;
-    let allowedMeters = DAVOMAT_OFFICE_GEOFENCE_METERS;
+    let allowedMeters = siteRadius;
     let gpsResult: string = skipOfficeGeofence ? (adminAnywhere ? "admin_bypass" : "mobile_anywhere") : "ok";
 
     if (!skipOfficeGeofence) {
       if (!hasGps) {
         res.status(400).json({
-          error: "Lokatsiya yoqilishi shart — ofis yashil hududida bo‘ling",
+          error: `Lokatsiya yoqilishi shart — ${siteLabel} hududida bo‘ling`,
           code: "gps_required",
         });
         return;
       }
-      distanceMeters = haversineMeters(latitude, longitude, DAVOMAT_SITE_LAT, DAVOMAT_SITE_LNG);
+      distanceMeters = haversineMeters(latitude, longitude, siteLat, siteLng);
       if (distanceMeters > allowedMeters) {
         const remainMeters = distanceMeters - allowedMeters;
         await writePunchAudit({
@@ -7251,15 +7280,15 @@ router.post("/davomat/qr-punch", requireAuth, async (req: AuthRequest, res): Pro
           meta: { qrKind: "office_shared" },
         });
         res.status(403).json({
-          error: `Hududdan tashqaridasiz (asosiy ofis): ${distanceMeters} m. Ruxsat faqat ${allowedMeters} m. Yana ${remainMeters} m yaqinlashishingiz kerak.`,
+          error: `Hududdan tashqaridasiz (${siteLabel}): ${distanceMeters} m. Ruxsat faqat ${allowedMeters} m. Yana ${remainMeters} m yaqinlashishingiz kerak.`,
           code: "outside_geofence",
           distanceMeters,
           remainMeters,
           allowedMeters,
           workplace: {
-            location: `Asosiy ofis · ${DAVOMAT_SITE_LABEL}`,
-            latitude: DAVOMAT_SITE_LAT,
-            longitude: DAVOMAT_SITE_LNG,
+            location: siteLabel,
+            latitude: siteLat,
+            longitude: siteLng,
             kind: "office",
           },
           fullName: emp.fullName,
@@ -7277,7 +7306,7 @@ router.post("/davomat/qr-punch", requireAuth, async (req: AuthRequest, res): Pro
         return;
       }
       if (hasGps) {
-        distanceMeters = haversineMeters(latitude, longitude, DAVOMAT_SITE_LAT, DAVOMAT_SITE_LNG);
+        distanceMeters = haversineMeters(latitude, longitude, siteLat, siteLng);
         if (mobileAnywhere) {
           allowedMeters = Math.max(allowedMeters, Math.ceil(distanceMeters) || allowedMeters);
         }

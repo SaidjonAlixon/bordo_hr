@@ -363,6 +363,7 @@ export const LIMITED_OFFICE_STAFF_ROLES = [
   "yuk_xodim",
   "yiguvchi",
   "shafyor",
+  "xodim",
   "mexanik",
   "direktor_yordamchisi",
 ] as const;
@@ -417,7 +418,7 @@ export function canManageDistribyutsiya(role?: string | null): boolean {
 
 /** Omborxona bo‘limi — xodim yoki boshliq */
 export function isOmborxonaRole(role?: string | null): boolean {
-  return role === "ombor" || role === "ombor_rahbar";
+  return role === "ombor" || role === "ombor_rahbar" || role === "zakupchi" || role === "priyomkachi";
 }
 
 /** Omborxona_ish — ombor xodim/boshliq + rahbariyat/HR */
@@ -564,7 +565,7 @@ export function isHrRecruitmentPath(pathname: string): boolean {
 
 export const HR_ROLE_LABELS: Record<string, string> = {
   hr: "HR",
-  hr_direktor: "HR Direktor",
+  hr_direktor: "HRD",
   hr_auditor: "HR Auditor",
   hr_menejer: "HR Menejer",
   hr_kadr_rahbar: "HR kadr b/m",
@@ -610,15 +611,16 @@ export const USER_ROLE_LABELS: Record<string, string> = {
   distrib_hr: "Distribyutsiya HR",
   distrib_rahbar: "Distribyutsiya rahbari",
   kassir: "Bosh kassir",
-  showroom: "Showroom xodimi",
+  showroom: "Showroom jamoasi",
+  xodim: "Xodim",
   sotuv_menejer: "Sotuv menejeri",
   asistent_agent: "Asistent agent",
   savdo_agenti: "Savdo agenti",
   zakupchi: "Zakupchi",
   priyomkachi: "Priyomkachi",
   ombor_rahbar: "ZavSklad / Ombor mudiri",
-  yuk_xodim: "Yuk bo‘limi xodimi",
-  yiguvchi: "Yig‘uvchi",
+  yuk_xodim: "Yuk bo‘limi xodimlari",
+  yiguvchi: "Yig‘uvchilar",
   shafyor: "Shafyor",
   yurist: "Yurist",
   komunalniy: "Kommunal",

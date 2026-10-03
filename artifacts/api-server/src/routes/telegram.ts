@@ -20,6 +20,7 @@ import {
   newAuthToken,
   parseLoginPassword,
   publicAppUrl,
+  telegramOpenBase,
   ROLE_LABEL_UZ,
   sendDocument,
   sendMessage,
@@ -152,7 +153,7 @@ async function createMiniToken(opts: {
 }
 
 function miniAppEntryUrl(opts?: { next?: string; token?: string }): string | null {
-  const base = publicAppUrl();
+  const base = telegramOpenBase() || publicAppUrl();
   if (!base) return null;
   const u = new URL(`${base}/tg`);
   if (opts?.next) u.searchParams.set("next", opts.next);
@@ -213,7 +214,7 @@ function welcomeText(name?: string): string {
   return [
     `👋 <b>Xush kelibsiz${greet}!</b>`,
     ``,
-    `VAKSINA MED HR Telegram botiga hush kelibsiz.`,
+    `BORDO HR botiga xush kelibsiz.`,
     `Davom etish uchun <b>login</b> va <b>parol</b>ni yuboring.`,
     ``,
     `<b>Namuna (1 qator):</b>`,
@@ -409,13 +410,9 @@ async function sendLoggedInCard(
   const loginUrl = miniAppEntryUrl({ token: loginToken });
   const davomatUrl = miniAppEntryUrl({ next: "davomat-face", token: davomatToken });
 
-  const rows: Array<Array<{ text: string; web_app?: { url: string }; callback_data?: string }>> = [];
-  if (loginUrl) {
-    rows.push([{ text: "🚀 Platformaga kirish", web_app: { url: loginUrl } }]);
-  }
-  if (davomatUrl) {
-    rows.push([{ text: "📋 Davomat — Face ID", web_app: { url: davomatUrl } }]);
-  }
+  const rows: Array<Array<{ text: string; web_app?: { url: string }; url?: string; callback_data?: string }>> = [];
+  if (loginUrl) rows.push([openButton("🚀 Platformaga kirish", loginUrl)]);
+  if (davomatUrl) rows.push([openButton("📋 Davomat — Face ID", davomatUrl)]);
   if (canManageSettings(user.role)) {
     rows.push([{ text: "📊 Hisobot — Telegram Excel", callback_data: "hisobot" }]);
   }
@@ -425,6 +422,9 @@ async function sendLoggedInCard(
   const markup = { inline_keyboard: rows };
 
   let text = formatUserCard(user);
+  if (loginUrl && !loginUrl.startsWith("https://")) {
+    text += `\n\nHavola ochilmasa, shu yerga bosing:\n${loginUrl}`;
+  }
   if (!loginUrl && !davomatUrl) {
     text +=
       "\n\n⚠️ <b>PUBLIC_APP_URL</b> sozlanmagan — Mini App havolasi yaratilmadi. Admin Vercel env ga qo‘shishi kerak.";
@@ -449,7 +449,7 @@ async function sendDavomatMiniApp(
   }
   await sendMessage(chatId, `📋 <b>Davomat — Face ID</b>\n\n${escapeHtml(user.fullName)}, tugmani bosing:`, {
     reply_markup: {
-      inline_keyboard: [[{ text: "📋 Davomat — Face ID", web_app: { url: davomatUrl } }]],
+      inline_keyboard: [[openButton("📋 Davomat — Face ID", davomatUrl)]],
     },
   });
 }
@@ -507,7 +507,12 @@ async function handleCredentials(
   await sendLoggedInCard(chatId, full, String(fromId));
 }
 
-async function handleUpdate(update: TelegramUpdate) {
+function openButton(text: string, href: string): { text: string; web_app?: { url: string }; url?: string } {
+  if (href.startsWith("https://")) return { text, web_app: { url: href } };
+  return { text, url: href };
+}
+
+export async function handleTelegramUpdate(update: TelegramUpdate) {
   if (update.callback_query) {
     const cq = update.callback_query;
     const chatId = cq.message?.chat.id;
@@ -621,7 +626,7 @@ router.post("/telegram/webhook", async (req, res): Promise<void> => {
 
   try {
     await ensureTelegramSchema();
-    await handleUpdate(req.body as TelegramUpdate);
+    await handleTelegramUpdate(req.body as TelegramUpdate);
   } catch (err) {
     console.error("telegram webhook handler:", err);
   }

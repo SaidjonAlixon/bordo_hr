@@ -78,7 +78,7 @@ import { HELP_ASSISTANT_ENABLED, HelpAssistantDialog } from '@/components/HelpAs
 import { OperatorHeadsetIcon } from '@/components/OperatorHeadsetIcon';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { useI18n, navLabelForPath } from '@/i18n/I18nProvider';
-import { isHiddenBordoPath } from '@/lib/bordo';
+import { bordoDuty, isHiddenBordoPath } from '@/lib/bordo';
 import { updateMyProfile } from '@/lib/face-id';
 import { isHrManager, isHrRole, isHrOversight, hasHrOversightNav, normalizeUserRole, isStajyor, canSeeHrRecruitment, isHrRecruitmentPath, canViewReviziya, canViewEmployees, canViewDavomat, canViewDavomatXatoliklar, canManageSettings, canManageUsers, canViewDistribyutsiya, canViewOmborxona, canViewKochmaAdmin, canViewHolat, canViewChecklistStatus, isDeptHeadRole, isLimitedOfficeStaffRole, isReviziyaRole, userRoleLabel, isDirectorRole, hasFullPlatformAccess, usesDavomatDashboardHome, isSbRole } from "@/lib/roles";
 import { useTelegramMiniAppChrome } from '@/pages/tg-entry';
@@ -348,8 +348,8 @@ function NavBadge({
     <span
       className={cn(
         'inline-flex items-center justify-center rounded-full font-semibold leading-none',
-        pulse && 'animate-pulse ring-2 ring-violet-300/50',
-        tone === 'soft' && 'bg-white text-[#5b4cdb] shadow-sm',
+        pulse && 'animate-pulse ring-2 ring-[#e7c5d0]',
+        tone === 'soft' && 'bg-white text-[#8b1e3f] shadow-sm',
         tone === 'section' && 'bg-slate-900/10 text-slate-700 dark:bg-white/15 dark:text-white/90',
         tone === 'rose' && 'bg-rose-500 text-white',
         collapsed
@@ -853,6 +853,9 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     if (location.startsWith('/admin/smena-sozlamalar') && !canManageSettings(user.role)) {
       setLocation('/dashboard');
     }
+    if (location.startsWith('/admin/davomat-joylar') && !canManageSettings(user.role) && !isHrRole(user.role)) {
+      setLocation('/dashboard');
+    }
     if (location.startsWith('/admin/davomat-qr') && !canManageSettings(user.role)) {
       setLocation('/dashboard');
     }
@@ -860,16 +863,16 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       setLocation('/dashboard');
     }
     if (isLimitedOfficeStaffRole(user.role)) {
+      const extra = bordoDuty(user.role)?.paths ?? [];
       const allowed =
         location.startsWith('/dashboard') ||
         location.startsWith('/vazifalar') ||
         location.startsWith('/eslatmalar') ||
-        location.startsWith('/javob-olish') ||
         location.startsWith('/tashkiliy-tuzilma') ||
         location.startsWith('/oylik') ||
         location.startsWith('/davomat') ||
-        location.startsWith('/omborxona-ish') ||
-        location === '/notifications';
+        location === '/notifications' ||
+        extra.some((path) => location === path || location.startsWith(`${path}/`));
       if (!allowed) {
         setLocation('/vazifalar');
       }
@@ -940,7 +943,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       next = [...next, itNav];
     }
     if (isLimitedOfficeStaffRole(role)) {
-      if (!next.some((i) => i.path === '/javob-olish')) {
+      if (!bordoDuty(role) && !next.some((i) => i.path === '/javob-olish')) {
         next = [javobNav, ...next];
       }
       if (!next.some((i) => i.path === '/tashkiliy-tuzilma')) {
@@ -1184,6 +1187,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       { name: 'Stajirovkalar', path: '/internships', icon: GraduationCap },
     ];
 
+  const davomatJoylarNav = { name: 'Davomat joylari', path: '/admin/davomat-joylar', icon: MapPin };
+
   const hrOversightNav: NavItem[] = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     javobHolatNav,
@@ -1212,6 +1217,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     { name: 'Kirish materiallari', path: '/admin/kirish-videolar', icon: Video },
     { name: 'Preboarding', path: '/admin/preboarding', icon: GraduationCap },
     { name: 'Face ID', path: '/admin/faces', icon: ScanFace },
+    davomatJoylarNav,
   ];
 
   const roleNavigation: Record<string, NavItem[]> = {
@@ -1250,6 +1256,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       { name: "Jonli kuzatuv", path: '/admin/kochma-live', icon: Radio },
       { name: 'Face ID', path: '/admin/faces', icon: ScanFace },
       { name: 'Smena sozlamalari', path: '/admin/smena-sozlamalar', icon: AlarmClock },
+      davomatJoylarNav,
       { name: 'Davomat QR', path: '/admin/davomat-qr', icon: ScanFace },
       { name: 'Test', path: '/admin/test', icon: Bell },
       { name: 'Hisobot', path: '/admin/holat', icon: BarChart3 },
@@ -1287,6 +1294,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       omborIshNav,
       { name: 'Face ID', path: '/admin/faces', icon: ScanFace },
       { name: 'Smena sozlamalari', path: '/admin/smena-sozlamalar', icon: AlarmClock },
+      davomatJoylarNav,
       { name: 'Davomat QR', path: '/admin/davomat-qr', icon: ScanFace },
       { name: 'Test', path: '/admin/test', icon: Bell },
       { name: 'Hisobot', path: '/admin/holat', icon: BarChart3 },
@@ -1340,6 +1348,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       atestatsiyaJoylashNav,
       { name: 'Face ID', path: '/admin/faces', icon: ScanFace },
       { name: 'Smena sozlamalari', path: '/admin/smena-sozlamalar', icon: AlarmClock },
+      davomatJoylarNav,
       { name: 'Davomat QR', path: '/admin/davomat-qr', icon: ScanFace },
       { name: 'Test', path: '/admin/test', icon: Bell },
       { name: 'Ehtiyoj', path: '/ehtiyoj', icon: ClipboardList },
@@ -1702,6 +1711,35 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     davomatFaceNav,
   ];
 
+  const bordoStaffNav = (role: string): NavItem[] | null => {
+    const duty = bordoDuty(role);
+    if (!duty) return null;
+    const items: NavItem[] = [
+      { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    ];
+    if (duty.paths.includes('/omborxona-ish')) {
+      items.push({
+        name: role === 'ombor_rahbar' ? 'Ombor holati' : 'Ombor ishi',
+        path: '/omborxona-ish',
+        icon: Package,
+      });
+    }
+    if (duty.paths.includes('/oylik')) items.push(oylikNav);
+    items.push(
+      { name: 'Topshiriqlar', path: '/vazifalar', icon: ListTodo },
+      { name: 'Eslatmalarim', path: '/eslatmalar', icon: AlarmClock },
+      orgNav,
+      davomatFaceNav,
+    );
+    if (duty.paths.includes('/employees')) {
+      items.push({ name: 'Xodimlar', path: '/employees', icon: Users });
+    }
+    if (duty.paths.includes('/davomat')) {
+      items.push({ name: 'Davomat hisobot', path: '/davomat', icon: ClipboardCheck });
+    }
+    return items;
+  };
+
   const userRole = normalizeUserRole(user.role);
   const oversightNav = hasHrOversightNav(userRole);
   // Korxona direktori admin menyusini oladi. Foydalanuvchilar keyinroq filtrlanadi.
@@ -1709,7 +1747,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     ? hrOversightNav
     : userRole === 'director'
       ? roleNavigation.admin
-      : roleNavigation[userRole] ??
+      : bordoStaffNav(userRole) ??
+      roleNavigation[userRole] ??
       (isLimitedOfficeStaffRole(userRole) ? staffHome : null) ??
       (hasFullPlatformAccess(userRole) ? roleNavigation.admin : null) ?? [
         { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -1821,8 +1860,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               cn(
                 'h-7 w-7 rounded-md',
                 active
-                  ? 'bg-violet-500/25 text-violet-100'
-                  : 'bg-slate-900/[0.04] text-slate-500 group-hover:bg-slate-900/[0.07] group-hover:text-slate-900 dark:bg-white/[0.06] dark:text-white/55 dark:group-hover:bg-white/10 dark:group-hover:text-white',
+                  ? 'bg-[#f3d5de] text-[#6e1632] dark:bg-[#8b1e3f]/35 dark:text-[#f8e8ee]'
+                  : 'bg-[#f8e8ed] text-[#8b1e3f] group-hover:bg-[#f3d5de] group-hover:text-[#4a1224] dark:bg-white/[0.06] dark:text-[#f3d5de] dark:group-hover:bg-white/10 dark:group-hover:text-white',
               ),
           )}
         >
@@ -1852,14 +1891,14 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
             <span
               className={cn(
                 'min-w-0 flex-1 text-[12px] font-medium leading-snug break-words',
-                opts.nested && active && 'font-semibold text-slate-900 dark:text-white',
-                opts.nested && !active && 'text-slate-600 group-hover:text-slate-900 dark:text-white/72 dark:group-hover:text-white',
+                opts.nested && active && 'font-semibold text-[#6e1632] dark:text-white',
+                opts.nested && !active && 'text-[#5c2436] group-hover:text-[#4a1224] dark:text-white/72 dark:group-hover:text-white',
               )}
             >
               {navLabelForPath(item.path, t, item.name)}
             </span>
             {opts.nested && active && !navEditMode ? (
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-300 shadow-[0_0_8px_rgba(196,181,253,0.9)]" aria-hidden />
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#8b1e3f] shadow-[0_0_8px_rgba(139,30,63,0.55)]" aria-hidden />
             ) : (
               <NavBadge count={count} pulse={pulse} tone={opts.nested ? 'soft' : 'rose'} />
             )}
@@ -1884,7 +1923,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
             active ? 'app-sidebar-nav-item-active' : 'app-sidebar-nav-item active:scale-[0.99]',
           ),
       navEditMode && 'cursor-grab active:cursor-grabbing ring-1 ring-transparent',
-      isDropTarget && 'ring-violet-400/60 bg-violet-500/15',
+      isDropTarget && 'ring-[#c45b78]/60 bg-[#8b1e3f]/10',
     );
 
     if (navEditMode && opts.sectionId != null && opts.itemIndex != null) {
@@ -1972,7 +2011,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       return (
         <div
           key={section.id}
-          className={cn('mb-1', isSectionDrop && 'rounded-xl ring-1 ring-violet-400/40')}
+          className={cn('mb-1', isSectionDrop && 'rounded-xl ring-1 ring-[#c45b78]/40')}
           onDragOver={(e) => {
             if (!navEditMode) return;
             e.preventDefault();
@@ -2023,13 +2062,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               className={cn(
                 'app-sidebar-section-trigger flex min-w-0 flex-1 items-center gap-2 rounded-xl px-2 py-1.5 text-left transition-all duration-200',
                 open && 'app-sidebar-section-trigger-open',
-                hasActive && !open && 'ring-1 ring-violet-400/25',
+                hasActive && !open && 'ring-1 ring-[#c45b78]/35',
               )}
             >
               <span className="app-sidebar-section-icon flex h-7 w-7 shrink-0 items-center justify-center rounded-lg">
                 <SectionIcon className="h-3.5 w-3.5" />
               </span>
-              <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-slate-900 dark:text-white">
+              <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-[#4a1224] dark:text-white">
                 {section.label}
               </span>
               {badgeSum > 0 ? <NavBadge count={badgeSum} tone="section" /> : null}
@@ -2049,7 +2088,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 className={cn(
                   'shrink-0 rounded-lg p-1.5 transition-colors',
                   pinned
-                    ? 'bg-violet-500/20 text-violet-700 dark:bg-violet-400/30 dark:text-violet-100'
+                    ? 'bg-[#f3d5de] text-[#6e1632] dark:bg-[#8b1e3f]/40 dark:text-[#f8e8ee]'
                     : 'text-slate-500 hover:bg-slate-900/5 hover:text-slate-900 dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white',
                 )}
               >
@@ -2109,36 +2148,39 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         )}
       >
         <div className="app-sidebar-brand relative shrink-0 pt-[env(safe-area-inset-top)]">
-          <div className="relative flex items-center gap-1 px-2.5 py-2 md:px-3">
-            <div className={cn('min-w-0 flex-1', desktopCollapsed && 'md:hidden')}>
-              <div className="flex items-center gap-2.5 px-1 py-1.5">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0B3A5C] text-sm font-bold text-white">
-                  B
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-[15px] font-bold tracking-[0.16em] text-[#0B3A5C]">BORDO</span>
-                  <span className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Kompaniya HR
-                  </span>
-                </span>
-              </div>
+          <div className="relative flex items-center gap-1 px-2.5 py-2.5 md:px-2.5">
+            <div className={cn('min-w-0 flex-1 rounded-xl bg-white px-2 py-1.5 shadow-sm', desktopCollapsed && 'md:hidden')}>
+              <img
+                src={`${import.meta.env.BASE_URL}bordo_hr.png`}
+                alt="BORDO HR"
+                width={2172}
+                height={724}
+                decoding="async"
+                className="h-auto w-full object-contain object-left"
+              />
             </div>
             {desktopCollapsed ? (
-              <div className="mx-auto hidden h-10 w-10 items-center justify-center rounded-xl bg-white/90 shadow-sm ring-1 ring-violet-200/60 md:flex">
+              <div className="relative mx-auto hidden h-12 w-12 overflow-hidden rounded-xl bg-white shadow-sm md:block" title="BORDO HR">
                 <img
-                  src={`${import.meta.env.BASE_URL}faviconni.png`}
-                  alt="VM"
-                  width={72}
-                  height={72}
+                  src={`${import.meta.env.BASE_URL}bordo_hr.png`}
+                  alt="BORDO HR"
+                  width={2172}
+                  height={724}
                   decoding="async"
-                  className="h-8 w-8 object-contain"
+                  className="absolute max-w-none"
+                  style={{
+                    width: "178px",
+                    height: "59px",
+                    left: "-3px",
+                    top: "-5px",
+                  }}
                 />
               </div>
             ) : null}
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800 md:hidden"
+              className="shrink-0 rounded-lg p-1.5 text-white/80 hover:bg-white/15 hover:text-white md:hidden"
               aria-label="Yopish"
             >
               <X className="h-4 w-4" />
@@ -2149,13 +2191,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         <nav className="flex-1 overflow-y-auto overscroll-contain px-2.5 py-2 md:px-2.5">
           <div
             className={cn(
-              'mb-2 rounded-xl border border-indigo-200 bg-white p-1.5 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none',
+              'mb-2 rounded-xl border border-[#e7c5d0] bg-white p-1.5 shadow-sm dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none',
               desktopCollapsed && 'md:hidden',
             )}
           >
             {navEditMode ? (
               <div className="space-y-1.5">
-                <p className="px-1.5 pt-0.5 text-[10px] font-medium leading-snug text-indigo-800 dark:text-violet-100/85">
+                <p className="px-1.5 pt-0.5 text-[10px] font-medium leading-snug text-[#6e1632] dark:text-[#f8e8ee]/85">
                   {t('nav.layout.editHint')}
                 </p>
                 <div className="flex flex-wrap gap-1">
@@ -2167,7 +2209,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                       navDragRef.current = null;
                       toast({ title: t('nav.layout.saved') });
                     }}
-                    className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-indigo-600 px-2 py-1.5 text-[11px] font-semibold text-white hover:bg-indigo-500 dark:bg-violet-500/90 dark:hover:bg-violet-500"
+                    className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#8b1e3f] px-2 py-1.5 text-[11px] font-semibold text-white hover:bg-[#6e1632] dark:bg-[#a3284c] dark:hover:bg-[#8b1e3f]"
                   >
                     <Check className="h-3.5 w-3.5" />
                     {t('nav.layout.done')}
@@ -2190,12 +2232,12 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   setDesktopCollapsed(false);
                   setNavEditMode(true);
                 }}
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold text-slate-800 transition hover:bg-indigo-50 hover:text-indigo-950 dark:font-medium dark:text-white/75 dark:hover:bg-white/10 dark:hover:text-white"
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold text-[#4a1224] transition hover:bg-[#f8e8ed] hover:text-[#6e1632] dark:font-medium dark:text-white/75 dark:hover:bg-white/10 dark:hover:text-white"
               >
-                <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-indigo-600 dark:text-violet-200" />
+                <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-[#8b1e3f] dark:text-[#f3d5de]" />
                 <span className="min-w-0 flex-1">{t('nav.layout.customize')}</span>
                 {navIsCustom ? (
-                  <span className="rounded-md bg-indigo-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-indigo-800 dark:bg-violet-400/25 dark:font-semibold dark:text-violet-100">
+                  <span className="rounded-md bg-[#f3d5de] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#6e1632] dark:bg-[#8b1e3f]/40 dark:font-semibold dark:text-[#f8e8ee]">
                     {t('nav.layout.customBadge')}
                   </span>
                 ) : null}
@@ -2235,7 +2277,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 {facePhotoUrl ? (
                   <img src={facePhotoUrl} alt="" className="h-full w-full object-cover" />
                 ) : (
-                  <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-violet-500 to-sky-400 text-sm font-bold text-white">
+                  <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#a3284c] to-[#6e1632] text-sm font-bold text-white">
                     {(user.fullName || 'U').slice(0, 1).toUpperCase()}
                   </span>
                 )}
@@ -2442,7 +2484,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   </span>
                   <span className="flex min-w-0 flex-col leading-none text-left">
                     <span className="text-[11px] font-semibold text-white sm:text-[12px]">{t('common.help')}</span>
-                    <span className="mt-0.5 hidden text-[9px] font-medium text-violet-100/75 sm:block">
+                    <span className="mt-0.5 hidden text-[9px] font-medium text-[#f8e8ee]/80 sm:block">
                       {t('common.contact')}
                     </span>
                   </span>

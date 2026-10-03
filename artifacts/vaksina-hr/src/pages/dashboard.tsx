@@ -33,6 +33,7 @@ import {
   Cpu,
   Wrench,
   Fingerprint,
+  Package,
 } from 'lucide-react';
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
@@ -52,6 +53,7 @@ import { useGetReminders } from '../lib/eslatmalar-api';
 import { FaceIdEnroll } from '../components/FaceIdEnroll';
 import { cn } from '../lib/utils';
 import { HR_ROLE_LABELS, canViewChecklistStatus, canViewHolat, canViewHolatFull, canSeeHrRecruitment, canViewDavomat, isHrRole, isSbRole, isReviziyaRole, isItRole, isTexnikRole, isDirectorRole, hasFullPlatformAccess, usesDavomatDashboardHome } from "../lib/roles";
+import { bordoDuty } from "../lib/bordo";
 import { useHolat } from '../lib/holat-api';
 import {
   BranchListRows,
@@ -178,6 +180,13 @@ function dashKindFor(role?: string | null): DashKind {
   }
 }
 
+function dutyIcon(href: string) {
+  if (href === "/oylik") return Banknote;
+  if (href === "/omborxona-ish") return Package;
+  if (href === "/davomat-face") return Fingerprint;
+  return ListTodo;
+}
+
 function workHomeMeta(kind: DashKind, role?: string | null): {
   title: string;
   hint: string;
@@ -185,6 +194,16 @@ function workHomeMeta(kind: DashKind, role?: string | null): {
   primaryLabel?: string;
   primaryIcon?: React.ComponentType<{ className?: string }>;
 } {
+  const duty = bordoDuty(role);
+  if (duty) {
+    return {
+      title: duty.title,
+      hint: duty.hint,
+      primaryHref: duty.primaryHref,
+      primaryLabel: duty.primaryLabel,
+      primaryIcon: dutyIcon(duty.primaryHref),
+    };
+  }
   switch (kind) {
     case 'pharmacy_staff':
       return {
@@ -300,6 +319,7 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const role = user?.role;
   const kind = dashKindFor(role);
+  const staffDuty = bordoDuty(role);
   const [detail, setDetail] = useState<DashDetailKey>(null);
   const openDetail = (key: DashDetailKey) => setDetail(key);
   const closeDetail = () => setDetail(null);
@@ -1256,21 +1276,38 @@ export default function Dashboard() {
 
       {kind === 'ops' && (
         <>
+          {staffDuty ? (
+            <div className="flex flex-wrap gap-2">
+              {staffDuty.duties.map((name) => (
+                <Badge key={name} variant="secondary" className="bg-slate-100 text-slate-800 dark:bg-white/10 dark:text-white">
+                  {name}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <DashTile title="Topshiriqlar" value={openTaskCount} icon={ListTodo} loading={myTasksLoading} color="text-sky-600" accent="bg-sky-50" onClick={() => openDetail('tasks')} active={detail === 'tasks'} />
             <DashTile title="Eslatmalar" value={activeReminders} icon={AlarmClock} loading={remindersLoading} color="text-amber-600" accent="bg-amber-50" onClick={() => openDetail('reminders')} active={detail === 'reminders'} />
           </div>
           <DashActionBar
-            items={[
-              { href: '/vazifalar', title: 'Topshiriqlar', desc: 'Berilgan ishlar', icon: ListTodo },
-              { href: '/tashkiliy-tuzilma', title: 'Tuzilma', desc: 'Lavozimlar', icon: Users },
-              { href: '/davomat-face', title: 'Davomat', desc: 'Kelish', icon: ClipboardCheck },
-              { href: '/eslatmalar', title: 'Eslatmalar', desc: 'Shaxsiy', icon: AlarmClock },
-              ]}
+            items={(staffDuty
+              ? [
+                  { href: staffDuty.primaryHref, title: staffDuty.primaryLabel, desc: staffDuty.title, icon: dutyIcon(staffDuty.primaryHref) },
+                  { href: '/vazifalar', title: 'Topshiriqlar', desc: 'Berilgan ishlar', icon: ListTodo },
+                  { href: '/davomat-face', title: 'Davomat', desc: 'Kelish', icon: ClipboardCheck },
+                  { href: '/tashkiliy-tuzilma', title: 'Tuzilma', desc: 'Lavozimlar', icon: Users },
+                ]
+              : [
+                  { href: '/vazifalar', title: 'Topshiriqlar', desc: 'Berilgan ishlar', icon: ListTodo },
+                  { href: '/tashkiliy-tuzilma', title: 'Tuzilma', desc: 'Lavozimlar', icon: Users },
+                  { href: '/davomat-face', title: 'Davomat', desc: 'Kelish', icon: ClipboardCheck },
+                  { href: '/eslatmalar', title: 'Eslatmalar', desc: 'Shaxsiy', icon: AlarmClock },
+                ]
+            ).filter((item, index, list) => list.findIndex((x) => x.href === item.href) === index)}
           />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <MyTasksPreview tasks={myTasks} loading={myTasksLoading} />
-            <NeedsPreview needs={branchNeeds} loading={needsLoading} />
+            {staffDuty ? null : <NeedsPreview needs={branchNeeds} loading={needsLoading} />}
           </div>
         </>
       )}

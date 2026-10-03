@@ -56,6 +56,7 @@ const AdminDarsliklarPage = lazy(() => import('./pages/admin/darsliklar'));
 const AdminAtestatsiyaPage = lazy(() => import('./pages/admin/atestatsiya'));
 const AdminFacesPage = lazy(() => import('./pages/admin/faces'));
 const AdminSmenaSozlamalarPage = lazy(() => import('./pages/admin/smena-sozlamalar'));
+const AdminDavomatJoylarPage = lazy(() => import('./pages/admin/davomat-joylar'));
 const AdminDavomatQrPage = lazy(() => import('./pages/admin/davomat-qr'));
 const AdminTestPage = lazy(() => import('./pages/admin/test'));
 const AdminQurilmalarPage = lazy(() => import('./pages/admin/qurilmalar'));
@@ -269,6 +270,7 @@ function Router() {
       <ProtectedRoute path="/admin/atestatsiya" component={AdminAtestatsiyaPage} />
       <ProtectedRoute path="/admin/faces" component={AdminFacesPage} />
       <ProtectedRoute path="/admin/smena-sozlamalar" component={AdminSmenaSozlamalarPage} />
+      <ProtectedRoute path="/admin/davomat-joylar" component={AdminDavomatJoylarPage} />
       <ProtectedRoute path="/admin/davomat-qr" component={AdminDavomatQrPage} />
       <ProtectedRoute path="/admin/test" component={AdminTestPage} />
       <ProtectedRoute path="/admin/qurilmalar" component={AdminQurilmalarPage} />

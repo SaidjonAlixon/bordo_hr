@@ -77,7 +77,7 @@ function FilterChip({
   onClick: () => void;
 }) {
   const active = {
-    navy: "border-[#0b3a5c] bg-[#0b3a5c] text-white shadow-sm",
+    navy: "border-[#6e1632] bg-[#6e1632] text-white shadow-sm",
     emerald: "border-emerald-700 bg-emerald-700 text-white shadow-sm",
     amber: "border-amber-500 bg-amber-500 text-white shadow-sm",
     rose: "border-rose-600 bg-rose-600 text-white shadow-sm",
@@ -292,7 +292,7 @@ export default function OylikPage() {
   const ret = useReturnOylik();
   const toggleDay = useToggleWorkDay();
   const [exporting, setExporting] = useState(false);
-  const [place, setPlace] = useState<StaffWorkplace | "">("");
+  const [place, setPlace] = useState<StaffWorkplace | "">("ofis");
   const [shift, setShift] = useState("");
   const [statusFilter, setStatusFilter] = useState<"" | "approved" | "draft" | "returned">("");
   const [fiksaFilter, setFiksaFilter] = useState<"" | "written" | "empty">("");
@@ -507,7 +507,7 @@ export default function OylikPage() {
                     <div className="flex flex-wrap gap-1">
                       <Button
                         type="button"
-                        className="h-9 rounded-lg bg-[#0b3a5c] text-white hover:bg-[#0b3a5c]/90"
+                        className="h-9 rounded-lg bg-[#6e1632] text-white hover:bg-[#6e1632]/90"
                         disabled={grain !== "kun" || approveDay.isPending || !actionIds.length}
                         onClick={() => {
                           if (!actionIds.length) return;
@@ -550,7 +550,7 @@ export default function OylikPage() {
                   <p className="mb-1 text-[11px] font-medium text-muted-foreground">Ekrandagi filtr · {place ? filteredRows.length : 0}</p>
                 <Button
                   type="button"
-                  className="h-9 rounded-lg"
+                  className="h-9 rounded-lg bg-[#6e1632] text-white hover:bg-[#8b1e3f]"
                     disabled={exporting || !place}
                   onClick={async () => {
                       if (!filteredRows.length) {
@@ -602,8 +602,7 @@ export default function OylikPage() {
           <div className="grid gap-2 sm:grid-cols-2">
             {(
               [
-                { key: "ofis" as const, label: "Ofis xodimlari", hint: "Oylik va jarima shu jadvalda", count: placeCounts.ofis },
-                { key: "dorixona" as const, label: "Dorixona", hint: "Smena bo‘yicha oylik va jarima", count: placeCounts.dorixona },
+                { key: "ofis" as const, label: "Xodimlar", hint: "Oylik va jarima shu jadvalda", count: placeCounts.ofis },
               ]
             ).map((opt) => {
               const on = place === opt.key;
@@ -622,7 +621,7 @@ export default function OylikPage() {
                   className={cn(
                     "flex items-center justify-between rounded-2xl border px-4 py-3 text-left",
                     on && opt.key === "dorixona" && "border-emerald-600 bg-emerald-700 text-white",
-                    on && opt.key === "ofis" && "border-[#0b3a5c] bg-[#0b3a5c] text-white",
+                    on && opt.key === "ofis" && "border-[#6e1632] bg-[#6e1632] text-white",
                     !on && "border-border bg-card text-foreground hover:bg-muted",
                   )}
                 >
@@ -736,12 +735,12 @@ export default function OylikPage() {
                 />
                 ) : place ? (
                   <div className="dept-empty">
-                    Ish kunini qo‘yish uchun smenani tanlang. Ofisda oddiy xodimlar bir kalendarda, xavfsizlik alohida, dorixonada har smena alohida.
+                    Ish kunini qo‘yish uchun smenani tanlang. Xodimlar bir kalendarda, xavfsizlik alohida.
               </div>
                 ) : null}
                 {!place ? (
                   <div className="dept-empty">
-                    Ofis xodimlari yoki dorixonani tanlang. Ichida smena bo‘yicha ajratiladi.
+                    Xodimlarni tanlang. Ichida smena bo‘yicha ajratiladi.
                   </div>
                 ) : (
                 <>
@@ -763,7 +762,7 @@ export default function OylikPage() {
                             onClick={() => setGrain(opt.key)}
                             className={cn(
                               "flex h-14 w-[9.75rem] flex-col items-center justify-center rounded-xl px-3 text-center transition",
-                              on ? "bg-[#0b3a5c] text-white shadow-sm" : "text-slate-600 hover:bg-white dark:text-slate-300 dark:hover:bg-slate-950",
+                              on ? "bg-[#6e1632] text-white shadow-sm" : "text-slate-600 hover:bg-white dark:text-slate-300 dark:hover:bg-slate-950",
                             )}
                           >
                             <span className="whitespace-nowrap text-sm font-semibold leading-none">{opt.label}</span>
@@ -782,7 +781,7 @@ export default function OylikPage() {
                         </button>
                       ) : null}
                 </div>
-                    <p className="text-sm font-semibold text-[#0f2744] dark:text-white">{periodLabel}</p>
+                    <p className="text-sm font-semibold text-[#6e1632] dark:text-white">{periodLabel}</p>
                 </div>
                   {grain !== "oy" ? (
                     <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
@@ -799,8 +798,8 @@ export default function OylikPage() {
                             className={cn(
                               "rounded-2xl border px-3 py-2.5 text-left transition",
                               on
-                                ? "border-[#0b3a5c] bg-[#0b3a5c] text-white shadow-md"
-                                : "border-slate-200 bg-slate-50 text-slate-800 hover:border-[#0b3a5c]/40 hover:bg-white dark:border-white/10 dark:bg-slate-950 dark:text-slate-100",
+                                ? "border-[#6e1632] bg-[#6e1632] text-white shadow-md"
+                                : "border-slate-200 bg-slate-50 text-slate-800 hover:border-[#6e1632]/40 hover:bg-white dark:border-white/10 dark:bg-slate-950 dark:text-slate-100",
                             )}
                           >
                             <span className={cn("block text-[10px] font-semibold uppercase tracking-wide", on ? "text-white/70" : "text-slate-400")}>Hafta {index + 1}</span>
@@ -824,8 +823,8 @@ export default function OylikPage() {
                             className={cn(
                               "flex h-16 w-[4.5rem] flex-col items-center justify-center rounded-2xl border transition",
                               on
-                                ? "border-[#0b3a5c] bg-[#0b3a5c] text-white shadow-md"
-                                : "border-slate-200 bg-white text-slate-800 hover:border-[#0b3a5c]/40 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100",
+                                ? "border-[#6e1632] bg-[#6e1632] text-white shadow-md"
+                                : "border-slate-200 bg-white text-slate-800 hover:border-[#6e1632]/40 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100",
                               today && !on && "ring-2 ring-emerald-500/70",
                             )}
                           >

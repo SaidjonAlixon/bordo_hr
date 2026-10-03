@@ -52,23 +52,23 @@ type OrgNode = {
 
 const TONES = {
   founder: {
-    ink: "#071E33",
-    fill: "from-[#071E33] via-[#0B3A5C] to-[#145A8A]",
-    soft: "bg-[#0B3A5C]/10 text-[#0B3A5C]",
-    chip: "bg-[#0B3A5C]/10 text-[#0B3A5C]",
+    ink: "#4a1224",
+    fill: "from-[#4a1224] via-[#6e1632] to-[#8b1e3f]",
+    soft: "bg-[#6e1632]/10 text-[#6e1632]",
+    chip: "bg-[#6e1632]/10 text-[#6e1632]",
   },
   director: {
-    ink: "#0B3A5C",
-    fill: "from-[#0B3A5C] to-[#1D6AA5]",
-    soft: "bg-[#0B3A5C]/10 text-[#0B3A5C]",
-    chip: "bg-[#0B3A5C]/10 text-[#0B3A5C]",
+    ink: "#6e1632",
+    fill: "from-[#6e1632] to-[#a3284c]",
+    soft: "bg-[#8b1e3f]/10 text-[#6e1632]",
+    chip: "bg-[#f3d5de] text-[#6e1632]",
   },
   taminot: {
-    ink: "#C2410C",
-    fill: "from-[#C2410C] to-[#EA580C]",
-    soft: "bg-orange-50 text-orange-800",
-    chip: "bg-orange-100 text-orange-700",
-    lane: "bg-orange-50/80 ring-orange-200/80",
+    ink: "#8b3040",
+    fill: "from-[#8b3040] to-[#c45b70]",
+    soft: "bg-[#f7e4e8] text-[#6e1632]",
+    chip: "bg-[#f7e4e8] text-[#6e1632]",
+    lane: "bg-[#f7e4e8]/80 ring-[#e7c5d0]",
   },
   moliya: {
     ink: "#047857",
@@ -78,11 +78,11 @@ const TONES = {
     lane: "bg-emerald-50/80 ring-emerald-200/80",
   },
   hrDept: {
-    ink: "#1D4E89",
-    fill: "from-[#1D4E89] to-[#3B82C4]",
-    soft: "bg-sky-50 text-sky-900",
-    chip: "bg-sky-100 text-sky-800",
-    lane: "bg-sky-50/80 ring-sky-200/80",
+    ink: "#7a3044",
+    fill: "from-[#7a3044] to-[#c45b78]",
+    soft: "bg-[#f8e8ed] text-[#6e1632]",
+    chip: "bg-[#f8e8ed] text-[#6e1632]",
+    lane: "bg-[#f8e8ed]/80 ring-[#e7c5d0]",
   },
   cbit: {
     ink: "#0E7490",
@@ -106,11 +106,11 @@ const TONES = {
     lane: "bg-violet-50/80 ring-violet-200/80",
   },
   axogpp: {
-    ink: "#BE185D",
-    fill: "from-[#BE185D] to-[#F472B6]",
-    soft: "bg-pink-50 text-pink-900",
-    chip: "bg-pink-100 text-pink-800",
-    lane: "bg-pink-50/80 ring-pink-200/80",
+    ink: "#9a4458",
+    fill: "from-[#9a4458] to-[#d4899a]",
+    soft: "bg-[#f8e8ee] text-[#7a3044]",
+    chip: "bg-[#f8e8ee] text-[#7a3044]",
+    lane: "bg-[#f8e8ee]/80 ring-[#e7c5d0]",
   },
   sb: {
     ink: "#1E3A5F",
@@ -126,28 +126,28 @@ const TONES = {
     chip: "bg-[#1D4E89]/10 text-[#1D4E89]",
   },
   specialist: {
-    ink: "#5B4B8A",
-    fill: "from-[#5B4B8A] to-[#7A68B0]",
-    soft: "bg-[#5B4B8A]/10 text-[#5B4B8A]",
-    chip: "bg-[#5B4B8A]/10 text-[#5B4B8A]",
+    ink: "#8d3d52",
+    fill: "from-[#8d3d52] to-[#c47a8c]",
+    soft: "bg-[#f6e4ea] text-[#6e1632]",
+    chip: "bg-[#f6e4ea] text-[#6e1632]",
   },
   coord: {
-    ink: "#0F766E",
-    fill: "from-[#0F766E] to-[#14B8A6]",
-    soft: "bg-teal-50 text-teal-800",
-    chip: "bg-teal-50 text-teal-700",
+    ink: "#9a4a5c",
+    fill: "from-[#9a4a5c] to-[#d4a0ae]",
+    soft: "bg-[#f8eef1] text-[#7a3044]",
+    chip: "bg-[#f8eef1] text-[#7a3044]",
   },
   branch: {
-    ink: "#9A6B3F",
-    fill: "from-[#9A6B3F] to-[#C48A54]",
-    soft: "bg-amber-50 text-amber-900",
-    chip: "bg-amber-50 text-amber-800",
+    ink: "#a35a4a",
+    fill: "from-[#a35a4a] to-[#d4a090]",
+    soft: "bg-[#f8ece8] text-[#7a3a30]",
+    chip: "bg-[#f8ece8] text-[#7a3a30]",
   },
   lead: {
-    ink: "#2F6B4F",
-    fill: "from-[#2F6B4F] to-[#3F8F6A]",
-    soft: "bg-emerald-50 text-emerald-900",
-    chip: "bg-emerald-50 text-emerald-800",
+    ink: "#8b3a48",
+    fill: "from-[#8b3a48] to-[#c96b7c]",
+    soft: "bg-[#f8e6ea] text-[#6e1632]",
+    chip: "bg-[#f8e6ea] text-[#6e1632]",
   },
   intern: {
     ink: "#4338CA",
@@ -683,7 +683,7 @@ function buildHrTree(employees: Employee[], users: User[]): OrgNode {
 function slotNode(
   id: string,
   label: string,
-  planned: number | null,
+  duty: string,
   tone: ToneKey,
   icon: React.ComponentType<{ className?: string }>,
   people: Employee[],
@@ -696,21 +696,13 @@ function slotNode(
     icon: UserIcon,
     inChart: false,
   }));
-  const countHint =
-    planned == null
-      ? names.length
-        ? `${names.length} nafar`
-        : "Soni alohida"
-      : names.length
-        ? `${names.length} / ${planned} nafar`
-        : `${planned} nafar`;
   return {
     id,
     label,
-    hint: countHint,
+    hint: duty,
     tone,
     icon,
-    count: names.length || planned || undefined,
+    count: names.length || undefined,
     expandable: names.length > 0,
     expandHint: names.length ? `${names.length} nafar · bosing` : undefined,
     children: names,
@@ -780,38 +772,38 @@ function buildBordoTree(employees: Employee[], users: User[]): OrgNode {
   return {
     id: "bordo",
     label: "BORDO",
-    hint: "Kamida 27 nafar · showroom alohida",
+    hint: "Lavozim bo‘yicha ish",
     tone: "founder",
     icon: Landmark,
     children: [
-      dept("rahbariyat", "Rahbariyat", "Direktor va HRD", "director", Crown, [
-        slotNode("direktor", "Direktor", 1, "director", Crown, direktor),
-        slotNode("hrd", "HRD", 1, "hrDept", ShieldCheck, hrd),
+      dept("rahbariyat", "Rahbariyat", "Boshqaruv va kadrlar", "director", Crown, [
+        slotNode("direktor", "Direktor", "Kompaniya boshqaruvi", "director", Crown, direktor),
+        slotNode("hrd", "HRD", "Kadrlar va ishga olish", "hrDept", ShieldCheck, hrd),
       ]),
-      dept("showroom", "Showroom", "Showroom jamoasi", "branch", Store, [
-        slotNode("showroom-jamoa", "Showroom jamoasi", null, "branch", Store, showroom),
+      dept("showroom", "Showroom hodimlari", "Mijoz va zal", "branch", Store, [
+        slotNode("showroom-jamoa", "Showroom jamoasi", "Mijoz qabuli va ko‘rsatish", "branch", Store, showroom),
       ]),
-      dept("savdo", "Savdo bo‘limi", "4 nafar", "lead", Briefcase, [
-        slotNode("bosh-kassir", "Bosh kassir", 1, "lead", Wallet, kassir),
-        slotNode("sotuv-menejer", "Sotuv menejeri", 3, "lead", Briefcase, sotuv),
+      dept("savdo", "Savdo bo‘limi", "Kassa va sotuv", "lead", Briefcase, [
+        slotNode("bosh-kassir", "Bosh kassir", "To‘lov va kunlik tushum", "lead", Wallet, kassir),
+        slotNode("sotuv-menejer", "Sotuv menejeri", "Mijoz va buyurtma", "lead", Briefcase, sotuv),
       ]),
-      dept("savdo-agentlari", "Savdo agentlari", "4 nafar", "specialist", Users, [
-        slotNode("asistent-agent", "Asistent agent", 2, "specialist", UserSearch, asistent),
-        slotNode("savdo-agenti", "Savdo agenti", 2, "specialist", Users, agent),
+      dept("savdo-agentlari", "Savdo agentlari bo‘limi", "Buyurtma va mijoz", "specialist", Users, [
+        slotNode("asistent-agent", "Asistent agent", "Hujjat va agentga yordam", "specialist", UserSearch, asistent),
+        slotNode("savdo-agenti", "Savdo agenti", "Mijoz va buyurtma olish", "specialist", Users, agent),
       ]),
-      dept("ombor", "Ombor bo‘limi", "3 nafar", "taminot", Warehouse, [
-        slotNode("zakupchi", "Zakupchi", 1, "taminot", Warehouse, zakup),
-        slotNode("priyomkachi", "Priyomkachi", 1, "taminot", ClipboardCheck, priyom),
-        slotNode("zavsklad", "ZavSklad / Ombor mudiri", 1, "taminot", Warehouse, zav),
+      dept("ombor", "Ombor bo‘limi", "Xarid, qabul, ombor", "taminot", Warehouse, [
+        slotNode("zakupchi", "Zakupchi", "Xarid va yetkazib beruvchi", "taminot", Warehouse, zakup),
+        slotNode("priyomkachi", "Priyomkachi", "Yuk qabuli va kirim", "taminot", ClipboardCheck, priyom),
+        slotNode("zavsklad", "ZavSklad / Ombor mudiri", "Smena va ombor holati", "taminot", Warehouse, zav),
       ]),
-      dept("yuklash", "Yuklash va yig‘uv", "10 nafar", "coord", Truck, [
-        slotNode("yuk-xodim", "Yuk bo‘limi xodimlari", 4, "coord", Truck, yuk),
-        slotNode("yiguvchi", "Yig‘uvchilar", 4, "coord", ClipboardCheck, yiguv),
-        slotNode("shafyor", "Shafyor", 2, "coord", Truck, shafyor),
+      dept("yuklash", "Yuklash-tushirish va yig‘uv bo‘limi", "Yuk, yig‘ish, yetkazish", "coord", Truck, [
+        slotNode("yuk-xodim", "Yuk bo‘limi xodimlari", "Yuklash va tushirish", "coord", Truck, yuk),
+        slotNode("yiguvchi", "Yig‘uvchilar", "Buyurtmani yig‘ish", "coord", ClipboardCheck, yiguv),
+        slotNode("shafyor", "Shafyor", "Yetkazib berish", "coord", Truck, shafyor),
       ]),
-      dept("xojalik", "Xo‘jalik bo‘limi", "2 nafar", "axogpp", Building2, [
-        slotNode("oshpaz", "Oshpaz", 1, "axogpp", Users, oshpaz),
-        slotNode("tozalovchi", "Tozalovchi", 1, "axogpp", Users, toza),
+      dept("xojalik", "Xo‘jalik bo‘limi", "Oshxona va tozalik", "axogpp", Building2, [
+        slotNode("oshpaz", "Oshpaz", "Ovqat tayyorlash", "axogpp", Users, oshpaz),
+        slotNode("tozalovchi", "Tozalovchi", "Tozalash va tartib", "axogpp", Users, toza),
       ]),
     ],
   };
@@ -1536,18 +1528,18 @@ export default function TashkiliyTuzilmaPage() {
     .map((n) => ({ id: n.id, label: n.label }));
 
   return (
-    <div className="flex h-full min-h-[calc(100vh-4rem)] flex-col bg-[#E8EEF4]">
-      <div className="shrink-0 border-b border-border bg-white/95 px-4 py-3 sm:px-6">
-        <div className="mb-2 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          <Network className="h-3.5 w-3.5 text-[#0b3a5c]" />
+    <div className="flex h-full min-h-[calc(100vh-4rem)] flex-col bg-[#f7eef1]">
+      <div className="shrink-0 border-b border-[#e7c5d0]/70 bg-white/95 px-4 py-3 sm:px-6">
+        <div className="mb-2 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8b1e3f]">
+          <Network className="h-3.5 w-3.5 text-[#8b1e3f]" />
           BORDO
         </div>
-        <h1 className="text-xl font-semibold tracking-tight text-[#0b3a5c] sm:text-2xl">Lavozimlar shajarasi</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-[#6e1632] sm:text-2xl">Lavozimlar shajarasi</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Umumiy shtat kamida 27 nafar. Showroom xodimlari soni alohida.
+          Har bir lavozimning o‘z ishi va funksiyasi.
         </p>
         <div className="mt-3 flex flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 text-[12px] font-medium sm:text-[13px]">
-          <span className="shrink-0 rounded-full bg-[#071E33] px-2.5 py-1 text-white">BORDO</span>
+          <span className="shrink-0 rounded-full bg-[#6e1632] px-2.5 py-1 text-white">BORDO</span>
           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
           {LEGEND.map((item) => (
             <span

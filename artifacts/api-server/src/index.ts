@@ -13,6 +13,7 @@ import { startJavobOlishEscalateJob } from "./jobs/javob-olish-escalate";
 import { startOpsTicketEscalateJob } from "./jobs/ops-ticket-escalate";
 import { startDismissedSweepJob } from "./jobs/dismissed-sweep";
 import { startZonePresenceJob } from "./jobs/zone-presence";
+import { startHrBotPollingJob } from "./jobs/hr-bot-polling";
 
 /** Vercel sets VERCEL=1 — serverless uses exported app, no listen. */
 const isVercel = process.env.VERCEL === "1" || process.env.VERCEL === "true";
@@ -51,6 +52,7 @@ if (!isVercel) {
     startOpsTicketEscalateJob();
     startDismissedSweepJob();
     startZonePresenceJob();
+    startHrBotPollingJob();
   });
 }
 

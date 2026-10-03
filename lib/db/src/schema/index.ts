@@ -34,4 +34,5 @@ export * from "./push";
 export * from "./device-security";
 export * from "./mobile-attendance";
 export * from "./warehouse-shifts";
+export * from "./bordo-places";
 export * from "./dismissed-staff";

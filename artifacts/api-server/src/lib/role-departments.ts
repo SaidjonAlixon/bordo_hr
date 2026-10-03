@@ -6,55 +6,33 @@ export const FARMASEVT_DEPARTMENT_NAME = "Farmasevt";
 export const PHARMACY_USER_ROLES = ["mudir", "farmasevt", "stajyor"] as const;
 
 /** Rol → bo‘lim nomi. Faqat mudir/farmasevt/stajyor «Farmasevt» bo‘limida. */
+export const BORDO_DEPARTMENT_NAMES = [
+  "Rahbariyat",
+  "Showroom hodimlari",
+  "Savdo bo‘limi",
+  "Savdo agentlari bo‘limi",
+  "Ombor bo‘limi",
+  "Yuklash-tushirish va yig‘uv bo‘limi",
+  "Xo‘jalik bo‘limi",
+] as const;
+
 export const ROLE_DEPARTMENT_NAME: Record<string, string> = {
   admin: "Rahbariyat",
   director: "Rahbariyat",
-  asoschi: "Rahbariyat",
-  moliya: "Rahbariyat",
-  moliya_rahbar: "Moliya",
-  moliya_xodim: "Moliya",
-  taminot_rahbar: "Ta’minot",
-  taminot: "Ta’minot",
-  rivojlantirish_rahbar: "Rivojlantirish",
-  rivojlantirish: "Rivojlantirish",
-  mamuriy_rahbar: "Ma’muriy-xo‘jalik",
-  mamuriy: "Ma’muriy-xo‘jalik",
-  gpp_rahbar: "GPP",
-  gpp: "GPP",
-  ombor_rahbar: "Omborxona",
-  oshpaz_rahbar: "Oshpaz",
-  oshpaz: "Oshpaz",
-  marketing_rahbar: "Marketing",
-  marketing: "Marketing",
-  mudir: FARMASEVT_DEPARTMENT_NAME,
-  farmasevt: FARMASEVT_DEPARTMENT_NAME,
-  stajyor: FARMASEVT_DEPARTMENT_NAME,
-  kassir: "Moliya",
-  yurist: "Rahbariyat",
-  komunalniy: "Ma’muriy-xo‘jalik",
-  farrosh: "Farrosh",
-  mexanik: "Mexanik",
-  direktor_yordamchisi: "Rahbariyat",
-  hr: "HR",
-  hr_direktor: "HR",
-  hr_kadr_rahbar: "HR",
-  hr_menejer: "HR",
-  hr_auditor: "HR",
-  recruiter: "Rekruting",
-  trainer: "Trening",
-  koordinator: "Koordinator",
-  it: "AyTi",
-  it_rahbar: "AyTi",
-  it_dasturchi: "AyTi",
-  it_tarmoq: "AyTi",
-  revizor: "Reviziya",
-  reviziya_rahbar: "Reviziya",
-  sb: "Xavfsizlik",
-  sb_boshliq: "Xavfsizlik",
-  ombor: "Omborxona",
-  distrib_rahbar: "Distribyutsiya",
-  distrib_hr: "Distribyutsiya",
-  distrib: "Distribyutsiya",
+  hr_direktor: "Rahbariyat",
+  showroom: "Showroom hodimlari",
+  kassir: "Savdo bo‘limi",
+  sotuv_menejer: "Savdo bo‘limi",
+  asistent_agent: "Savdo agentlari bo‘limi",
+  savdo_agenti: "Savdo agentlari bo‘limi",
+  zakupchi: "Ombor bo‘limi",
+  priyomkachi: "Ombor bo‘limi",
+  ombor_rahbar: "Ombor bo‘limi",
+  yuk_xodim: "Yuklash-tushirish va yig‘uv bo‘limi",
+  yiguvchi: "Yuklash-tushirish va yig‘uv bo‘limi",
+  shafyor: "Yuklash-tushirish va yig‘uv bo‘limi",
+  oshpaz: "Xo‘jalik bo‘limi",
+  farrosh: "Xo‘jalik bo‘limi",
 };
 
 export function departmentNameForRole(role?: string | null): string | null {
@@ -186,22 +164,13 @@ export async function resolveDepartmentIdForRole(role: string): Promise<number |
   return ensureDepartmentByName(name);
 }
 
-/** Barcha rollarni o‘z bo‘limiga; faqat apteka tarmog‘i — Farmasevt. */
+/** BORDO bo‘limlarini yaratadi. Qo‘lda qo‘shilgan boshqa bo‘limlar o‘chirilmaydi. */
 export async function syncAllRoleDepartmentAssignments(): Promise<void> {
   await dedupeDepartmentsByName();
-
-  const { ensureItDepartmentId } = await import("./it-department");
-  await ensureItDepartmentId();
-  try {
-    const { ensureDistribyutsiyaSetup } = await import("./distribyutsiya-department");
-    await ensureDistribyutsiyaSetup();
-  } catch {
-    /* jadval hali yo‘q bo‘lishi mumkin */
+  for (const name of BORDO_DEPARTMENT_NAMES) {
+    await ensureDepartmentByName(name);
   }
-  const farmId = await ensureDepartmentByName(FARMASEVT_DEPARTMENT_NAME);
-
   for (const [role, deptName] of Object.entries(ROLE_DEPARTMENT_NAME)) {
-    if ((PHARMACY_USER_ROLES as readonly string[]).includes(role)) continue;
     const deptId = await ensureDepartmentByName(deptName);
     await db.execute(sql`
       UPDATE users
@@ -209,40 +178,5 @@ export async function syncAllRoleDepartmentAssignments(): Promise<void> {
       WHERE role = ${role}
         AND department_id IS NULL
     `);
-    await db.execute(sql`
-      UPDATE employees e
-      SET department_id = ${deptId}
-      FROM users u
-      WHERE e.user_id = u.id
-        AND u.role = ${role}
-        AND e.department_id IS NULL
-    `);
   }
-
-  await db.execute(sql`
-    UPDATE users
-    SET department_id = ${farmId}
-    WHERE role IN ('mudir', 'farmasevt', 'stajyor')
-      AND department_id IS DISTINCT FROM ${farmId}
-  `);
-  await db.execute(sql`
-    UPDATE employees e
-    SET department_id = ${farmId}
-    FROM users u
-    WHERE e.user_id = u.id
-      AND u.role IN ('mudir', 'farmasevt', 'stajyor')
-      AND e.department_id IS DISTINCT FROM ${farmId}
-  `);
-  await db.execute(sql`
-    UPDATE employees
-    SET department_id = ${farmId}
-    WHERE org_role IN ('manager', 'pharmacist', 'intern')
-      AND (
-        user_id IS NULL
-        OR user_id IN (SELECT id FROM users WHERE role IN ('mudir', 'farmasevt', 'stajyor'))
-      )
-      AND department_id IS DISTINCT FROM ${farmId}
-  `);
-
-  await dedupeDepartmentsByName();
 }

@@ -1,8 +1,8 @@
 import { ensureDepartmentByName } from "./role-departments";
 
-export const OMBORXONA_DEPARTMENT_NAME = "Omborxona";
+export const OMBORXONA_DEPARTMENT_NAME = "Ombor bo‘limi";
 
-export const OMBOR_ROLES = new Set(["ombor", "ombor_rahbar"]);
+export const OMBOR_ROLES = new Set(["ombor", "ombor_rahbar", "zakupchi", "priyomkachi"]);
 export const OMBOR_HEAD_ROLES = new Set(["ombor_rahbar"]);
 
 export function isOmborStaffRole(role?: string | null): boolean {

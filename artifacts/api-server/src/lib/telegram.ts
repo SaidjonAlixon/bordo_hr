@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import os from "node:os";
 
 const TG_API = "https://api.telegram.org";
 
@@ -60,6 +61,53 @@ export function publicAppUrl(): string {
   if (!raw) return "";
   const withProto = raw.startsWith("http") ? raw : `https://${raw}`;
   return withProto.replace(/\/$/, "");
+}
+
+function firstLanIpv4(): string | null {
+  const nets = os.networkInterfaces();
+  for (const list of Object.values(nets)) {
+    for (const net of list || []) {
+      if (net.family !== "IPv4" || net.internal) continue;
+      if (net.address.startsWith("169.254.")) continue;
+      return net.address;
+    }
+  }
+  return null;
+}
+
+/** Botdagi «ochish» havolasi. localhost telefon uchun yaramaydi — tarmoq IP si ishlatiladi. */
+export function telegramOpenBase(): string {
+  const pub = publicAppUrl();
+  const lan = firstLanIpv4();
+  if (!pub) return lan ? `http://${lan}:3000` : "";
+  try {
+    const u = new URL(pub);
+    const local = u.hostname === "localhost" || u.hostname === "127.0.0.1";
+    if (local && lan) {
+      u.hostname = lan;
+      return u.toString().replace(/\/$/, "");
+    }
+  } catch {
+    /* pastda */
+  }
+  return pub;
+}
+
+/** Lokal manzilda webhook ishlamaydi — bot getUpdates bilan tinglanadi. */
+export function shouldHrBotUsePolling(): boolean {
+  const flag = process.env.TELEGRAM_BOT_POLLING?.trim().toLowerCase();
+  if (flag === "0" || flag === "false") return false;
+  if (flag === "1" || flag === "true") return true;
+  const url = publicAppUrl();
+  if (!url) return true;
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:") return true;
+    if (u.hostname === "localhost" || u.hostname === "127.0.0.1") return true;
+    return false;
+  } catch {
+    return true;
+  }
 }
 
 async function tgCall<T = unknown>(method: string, body: Record<string, unknown>): Promise<T> {
@@ -140,6 +188,18 @@ export async function answerCallbackQuery(id: string, text?: string) {
 
 export async function getMe() {
   return tgCall<{ id: number; username?: string; first_name?: string }>("getMe", {});
+}
+
+export async function deleteWebhook() {
+  return tgCall("deleteWebhook", { drop_pending_updates: false });
+}
+
+export async function getUpdates(offset?: number, timeout = 25): Promise<TelegramUpdate[]> {
+  return tgCall<TelegramUpdate[]>("getUpdates", {
+    offset,
+    timeout,
+    allowed_updates: ["message", "callback_query"],
+  });
 }
 
 export async function setWebhook(url: string, secret?: string) {

@@ -1660,6 +1660,7 @@ CREATE INDEX IF NOT EXISTS mobile_att_audit_action_idx ON mobile_attendance_audi
 `);
     await ensureRevisionVisitsSchema();
     await ensureWarehouseShiftsSchema();
+    await ensureBordoPlacesSchema();
     await ensureAttendanceSealsSchema();
   } catch (err) {
     logger.error({ err }, "Failed to ensure DB schema");
@@ -1675,20 +1676,6 @@ CREATE INDEX IF NOT EXISTS mobile_att_audit_action_idx ON mobile_attendance_audi
     await syncAllRoleDepartmentAssignments();
   } catch (err) {
     logger.warn({ err }, "Role department sync skipped");
-  }
-
-  try {
-    const { ensureDistribyutsiyaSetup } = await import("./distribyutsiya-department");
-    await ensureDistribyutsiyaSetup();
-  } catch (err) {
-    logger.warn({ err }, "Distribyutsiya setup skipped");
-  }
-
-  try {
-    const { ensureOmborxonaDepartmentId } = await import("./omborxona-department");
-    await ensureOmborxonaDepartmentId();
-  } catch (err) {
-    logger.warn({ err }, "Omborxona department setup skipped");
   }
 }
 
@@ -1777,6 +1764,80 @@ CREATE INDEX IF NOT EXISTS wh_shift_members_emp_idx ON warehouse_shift_members (
 CREATE UNIQUE INDEX IF NOT EXISTS wh_shift_members_emp_active_uidx
   ON warehouse_shift_members (employee_id) WHERE active = true;
 `;
+
+const BORDO_PLACES_SQL = `
+CREATE TABLE IF NOT EXISTS bordo_places (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  radius_meters INTEGER NOT NULL DEFAULT 100,
+  is_main BOOLEAN NOT NULL DEFAULT FALSE,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS bordo_places_main_idx ON bordo_places (is_main);
+CREATE INDEX IF NOT EXISTS bordo_places_active_idx ON bordo_places (active);
+INSERT INTO bordo_places (name, latitude, longitude, radius_meters, is_main, active)
+SELECT 'Asosiy ofis', 41.21925, 69.273028, 100, TRUE, TRUE
+WHERE NOT EXISTS (SELECT 1 FROM bordo_places WHERE is_main = TRUE);
+
+CREATE TABLE IF NOT EXISTS bordo_place_assignments (
+  id SERIAL PRIMARY KEY,
+  place_id INTEGER NOT NULL,
+  scope TEXT NOT NULL,
+  department_id INTEGER,
+  role TEXT,
+  user_id INTEGER,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS bordo_place_asg_place_idx ON bordo_place_assignments (place_id);
+CREATE INDEX IF NOT EXISTS bordo_place_asg_user_idx ON bordo_place_assignments (user_id);
+CREATE INDEX IF NOT EXISTS bordo_place_asg_role_idx ON bordo_place_assignments (role);
+CREATE INDEX IF NOT EXISTS bordo_place_asg_dept_idx ON bordo_place_assignments (department_id);
+
+CREATE TABLE IF NOT EXISTS bordo_shifts (
+  id SERIAL PRIMARY KEY,
+  place_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  start_hm TEXT NOT NULL,
+  end_hm TEXT NOT NULL,
+  overnight BOOLEAN NOT NULL DEFAULT FALSE,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS bordo_shifts_place_idx ON bordo_shifts (place_id);
+CREATE INDEX IF NOT EXISTS bordo_shifts_active_idx ON bordo_shifts (active);
+
+CREATE TABLE IF NOT EXISTS bordo_shift_assignments (
+  id SERIAL PRIMARY KEY,
+  shift_id INTEGER NOT NULL,
+  scope TEXT NOT NULL,
+  department_id INTEGER,
+  role TEXT,
+  user_id INTEGER,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS bordo_shift_asg_shift_idx ON bordo_shift_assignments (shift_id);
+CREATE INDEX IF NOT EXISTS bordo_shift_asg_user_idx ON bordo_shift_assignments (user_id);
+CREATE INDEX IF NOT EXISTS bordo_shift_asg_role_idx ON bordo_shift_assignments (role);
+CREATE INDEX IF NOT EXISTS bordo_shift_asg_dept_idx ON bordo_shift_assignments (department_id);
+`;
+
+export async function ensureBordoPlacesSchema(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(BORDO_PLACES_SQL);
+    logger.info("BORDO places schema ensured");
+  } catch (err) {
+    logger.warn({ err }, "BORDO places schema ensure failed");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
 
 export async function ensureWarehouseShiftsSchema(): Promise<void> {
   const client = await pool.connect();

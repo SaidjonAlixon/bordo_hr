@@ -49,7 +49,6 @@ export function DavomatAttendanceBanner() {
   if (!status) return null;
 
   const done = status.nextAction === "done";
-  const urgent = status.nextAction === "in" || status.nextAction === "out";
 
   return (
     <div
@@ -57,9 +56,7 @@ export function DavomatAttendanceBanner() {
         "border-b px-3 py-1.5 sm:px-4",
         done
           ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200"
-          : urgent
-            ? "border-amber-500/20 bg-amber-500/10 text-amber-900 dark:text-amber-100"
-            : "border-sky-500/20 bg-sky-500/10 text-sky-900 dark:text-sky-100",
+          : "border-[#e7c5d0] bg-[#f8e8ed] text-[#6e1632] dark:border-[#8b1e3f]/40 dark:bg-[#3a1522] dark:text-[#f8e8ee]",
       )}
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-2">
@@ -79,7 +76,11 @@ export function DavomatAttendanceBanner() {
             </span>
           </p>
         </div>
-        <Button asChild size="sm" className="h-7 shrink-0 gap-1.5 rounded-lg px-2.5 text-xs">
+        <Button
+          asChild
+          size="sm"
+          className="h-7 shrink-0 gap-1.5 rounded-lg border-[#6e1632] bg-[#8b1e3f] px-2.5 text-xs text-white hover:bg-[#6e1632]"
+        >
           <Link href={status.linkUrl || "/davomat-face"}>
             <ScanFace className="h-3.5 w-3.5" />
             {t("banner.davomat")}

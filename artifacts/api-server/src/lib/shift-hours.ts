@@ -255,6 +255,49 @@ export function shiftWindow(
   };
 }
 
+export function encodeBordoShiftType(startHm: string, endHm: string, overnight?: boolean): string {
+  const norm = (hm: string) => {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(String(hm || "").trim());
+    if (!m) return null;
+    return `${String(Number(m[1])).padStart(2, "0")}:${m[2]}`;
+  };
+  const s = norm(startHm) || "09:00";
+  const e = norm(endHm) || "18:00";
+  const over = overnight === true || (overnight !== false && hmToMinutes(e) <= hmToMinutes(s));
+  return over ? `bd:${s}-${e}:o` : `bd:${s}-${e}`;
+}
+
+export function parseBordoShiftType(
+  shiftType?: string | null,
+  shiftLabel?: string | null,
+  graceMinutes = 15,
+): WorkSchedule | null {
+  const raw = String(shiftType || "").trim();
+  const m = /^bd:(\d{1,2}:\d{2})-(\d{1,2}:\d{2})(:o)?$/i.exec(raw);
+  if (!m) return null;
+  const pad = (hm: string) => {
+    const [h, mi] = hm.split(":");
+    return `${String(Number(h)).padStart(2, "0")}:${mi}`;
+  };
+  const start = pad(m[1]!);
+  const end = pad(m[2]!);
+  const overnight = Boolean(m[3]) || hmToMinutes(end) <= hmToMinutes(start);
+  const label = String(shiftLabel || "").trim() || "Smena";
+  const grace = graceMinutes > 0 ? graceMinutes : 15;
+  const range = overnight ? `${start}–${end} (keyingi kun)` : `${start}–${end}`;
+  return {
+    key: "office",
+    keys: ["office"],
+    label,
+    start,
+    end,
+    graceMinutes: grace,
+    overnight,
+    warnHm: warnHmBefore(start, grace),
+    warnText: `Smena «${label}»: ${range}. ${grace} daqiqadan so‘ng kechikish hisoblanadi.`,
+  };
+}
+
 export function workScheduleForStaff(
   userRole?: string | null,
   orgRole?: string | null,
@@ -262,6 +305,8 @@ export function workScheduleForStaff(
   shiftLabel?: string | null,
   defs: Record<ShiftKey, ShiftDefinition> = DEFAULT_SHIFT_DEFS,
 ): WorkSchedule {
+  const bordo = parseBordoShiftType(shiftType, shiftLabel, defs.office?.graceMinutes ?? 15);
+  if (bordo) return bordo;
   const wh = parseWarehouseShiftType(shiftType, shiftLabel, defs.office?.graceMinutes ?? 15);
   if (wh) return wh;
   const sb = securityWorkSchedule(userRole, shiftType, defs.office?.graceMinutes ?? 15);
