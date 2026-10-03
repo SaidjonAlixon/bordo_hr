@@ -118,6 +118,30 @@ export const departmentAttendanceQrTable = pgTable(
   ],
 );
 
+/** Davomat joyi QR — skaner faqat shu joyning radiusida qabul qilinadi. */
+export const placeAttendanceQrTable = pgTable(
+  "place_attendance_qr",
+  {
+    id: serial("id").primaryKey(),
+    qrId: text("qr_id").notNull(),
+    placeId: integer("place_id").notNull(),
+    placeLabel: text("place_label"),
+    tokenHash: text("token_hash").notNull(),
+    tokenPayload: text("token_payload"),
+    version: integer("version").notNull().default(1),
+    status: text("status").notNull().default("active"),
+    createdById: integer("created_by_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("place_attendance_qr_qr_id_uidx").on(t.qrId),
+    index("place_attendance_qr_place_idx").on(t.placeId),
+    index("place_attendance_qr_status_idx").on(t.status),
+  ],
+);
+
 /** Davomat urinishlari audit log */
 export const attendancePunchAuditTable = pgTable(
   "attendance_punch_audit",

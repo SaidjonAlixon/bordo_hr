@@ -903,7 +903,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const davomatAnalyticsNav = { name: 'Davomat tahlili', path: '/davomat/analytics', icon: BarChart3 };
   const davomatXatoliklarNav = { name: 'Xatoliklar', path: '/davomat/xatoliklar', icon: AlertTriangle };
   const davomatBloklashNav = { name: 'Bloklash oynasi', path: '/davomat/bloklash', icon: ShieldOff };
-  const dorixonaOchilishNav = { name: 'Dorixona ochilishi', path: '/davomat/dorixona-ochilishi', icon: Store };
   const davomatFaceNav = { name: 'Davomat', path: '/davomat-face', icon: ScanFace };
   const davomatOfisdaNav = { name: 'Asosiy ofisda qolish', path: '/davomat/ofisda', icon: Building2 };
   const davomatKochmaNav = { name: "Ko‘chma davomat", path: '/davomat-kochma', icon: MapPin };
@@ -1008,11 +1007,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         const reportIdx = next.findIndex((i) => i.path === '/davomat');
         const at = reportIdx >= 0 ? reportIdx + 1 : next.length;
         next = [...next.slice(0, at), davomatBloklashNav, ...next.slice(at)];
-      }
-      if ((hasFullPlatformAccess(role) || isSbRole(role)) && !next.some((i) => i.path === '/davomat/dorixona-ochilishi')) {
-        const reportIdx = next.findIndex((i) => i.path === '/davomat');
-        const at = reportIdx >= 0 ? reportIdx + 1 : next.length;
-        next = [...next.slice(0, at), dorixonaOchilishNav, ...next.slice(at)];
       }
       if (canViewDavomatXatoliklar(role) && !next.some((i) => i.path === '/davomat/xatoliklar')) {
         const baseIdx = next.findIndex(

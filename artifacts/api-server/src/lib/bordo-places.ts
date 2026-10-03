@@ -10,6 +10,7 @@ import {
   usersTable,
 } from "@workspace/db";
 import { encodeBordoShiftType, hmToMinutes } from "./shift-hours";
+import { ensurePlaceQr, revokeActiveQrForPlace } from "./place-attendance-qr";
 
 export const BORDO_PLACE_ROLES: { value: string; label: string }[] = [
   { value: "director", label: "Direktor" },
@@ -246,6 +247,11 @@ export async function bordoAttendanceBundle() {
 
   const deptName = new Map(departments.map((d) => [d.id, d.name]));
   const activePlaces = places.filter((p) => p.active);
+  const qrByPlace = new Map<number, { version: number; payload: string | null }>();
+  for (const place of activePlaces) {
+    const qr = await ensurePlaceQr(place.id, place.name).catch(() => null);
+    if (qr) qrByPlace.set(place.id, { version: qr.version, payload: qr.tokenPayload || null });
+  }
   const activeShifts = shifts.filter((s) => s.active && activePlaces.some((p) => p.id === s.placeId));
 
   const resolved = people.map((person) => {
@@ -292,6 +298,7 @@ export async function bordoAttendanceBundle() {
     places: places.map((p) => ({
       ...p,
       assignments: assignmentPayload(placeAsg.filter((a) => a.placeId === p.id)),
+      qr: qrByPlace.get(p.id) ?? null,
     })),
     shifts: shifts.map((s) => ({
       ...s,
@@ -333,6 +340,7 @@ export async function createBordoPlace(input: {
   latitude?: number | null;
   longitude?: number | null;
   radiusMeters?: number;
+  createdById?: number | null;
 }) {
   const name = input.name.trim();
   if (!name) throw new Error("Joy nomini yozing");
@@ -347,6 +355,7 @@ export async function createBordoPlace(input: {
       active: true,
     })
     .returning();
+  if (created) await ensurePlaceQr(created.id, created.name, input.createdById);
   return created;
 }
 
@@ -364,6 +373,7 @@ export async function updateBordoPlace(
   if (typeof patch.active === "boolean" && !existing.isMain) updates.active = patch.active;
   if (!Object.keys(updates).length) return existing;
   const [updated] = await db.update(bordoPlacesTable).set(updates).where(eq(bordoPlacesTable.id, id)).returning();
+  if (updated) await ensurePlaceQr(updated.id, updated.name).catch(() => undefined);
   return updated;
 }
 
@@ -377,6 +387,7 @@ export async function deleteBordoPlace(id: number) {
     await db.delete(bordoShiftsTable).where(eq(bordoShiftsTable.placeId, id));
   }
   await db.delete(bordoPlaceAssignmentsTable).where(eq(bordoPlaceAssignmentsTable.placeId, id));
+  await revokeActiveQrForPlace(id).catch(() => undefined);
   await db.delete(bordoPlacesTable).where(eq(bordoPlacesTable.id, id));
   await syncAllBordoShifts();
   return true;

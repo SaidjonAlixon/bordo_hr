@@ -62,6 +62,7 @@ router.post("/bordo-davomat/places", requireAuth, async (req: AuthRequest, res):
       latitude: req.body?.latitude,
       longitude: req.body?.longitude,
       radiusMeters: req.body?.radiusMeters,
+      createdById: req.userId,
     });
     res.status(201).json(created);
   } catch (err) {

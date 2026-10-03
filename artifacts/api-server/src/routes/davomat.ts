@@ -17,6 +17,8 @@ import {
   attendancePunchAuditTable,
   employeeScheduleOverridesTable,
   dismissedStaffTable,
+  bordoPlacesTable,
+  placeAttendanceQrTable,
 } from "@workspace/db";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { scriptIncludes } from "../lib/script-search";
@@ -153,6 +155,11 @@ import {
   revokeActiveQrForDepartment,
   verifyDepartmentQrPayload,
 } from "../lib/department-attendance-qr";
+import {
+  getActiveQrForPlace,
+  revokeActiveQrForPlace,
+  verifyPlaceQrPayload,
+} from "../lib/place-attendance-qr";
 import { clientIp, writePunchAudit } from "../lib/punch-audit";
 import { punchErrorHelp, resolvePunchErrorCode } from "../lib/punch-error-help";
 import {
@@ -6461,6 +6468,123 @@ async function assertCanAccessBranchQr(
   return { ok: false, status: 403, error: "Bu filial QR iga ruxsat yo‘q" };
 }
 
+function canViewPlaceQr(role: string | null | undefined) {
+  return hasFullPlatformAccess(role) || isDirectorRole(role) || isDeptHeadRole(role);
+}
+
+function canEditPlaceQr(role: string | null | undefined) {
+  return hasFullPlatformAccess(role);
+}
+
+/** Ochilgan davomat joylari — har bir joy o‘z QR ini oladi */
+router.get("/davomat/qr/places", requireAuth, async (req: AuthRequest, res): Promise<void> => {
+  if (!canViewPlaceQr(req.userRole)) {
+    res.status(403).json({ error: "Davomat joyi QR ini ko‘rishga ruxsat yo‘q", code: "qr_forbidden" });
+    return;
+  }
+  try {
+    const places = await db
+      .select()
+      .from(bordoPlacesTable)
+      .where(eq(bordoPlacesTable.active, true));
+    const rows = await Promise.all(
+      places.map(async (place) => {
+        const active = await getActiveQrForPlace(place.id);
+        return {
+          id: place.id,
+          name: place.name,
+          isMain: place.isMain,
+          latitude: place.latitude,
+          longitude: place.longitude,
+          radiusMeters: place.radiusMeters > 0 ? place.radiusMeters : 100,
+          hasCoords: place.latitude != null && place.longitude != null,
+          hasActiveQr: Boolean(active),
+          qrId: active?.qrId ?? null,
+          version: active?.version ?? null,
+          createdAt: active?.createdAt?.toISOString() ?? null,
+          payload: active?.tokenPayload || null,
+          needsReissue: Boolean(active && !active.tokenPayload),
+        };
+      }),
+    );
+    rows.sort((a, b) => Number(b.isMain) - Number(a.isMain) || a.name.localeCompare(b.name, "uz"));
+    res.json({ places: rows, canEdit: canEditPlaceQr(req.userRole) });
+  } catch (err) {
+    console.error("GET /davomat/qr/places error:", err);
+    res.status(503).json({ error: "Davomat joylari yuklanmadi" });
+  }
+});
+
+router.post("/davomat/qr/place/issue", requireAuth, async (req: AuthRequest, res): Promise<void> => {
+  if (!canEditPlaceQr(req.userRole)) {
+    res.status(403).json({ error: "QR yaratish faqat admin uchun", code: "qr_forbidden" });
+    return;
+  }
+  try {
+    const placeId = Number(req.body?.placeId);
+    if (!Number.isFinite(placeId)) {
+      res.status(400).json({ error: "placeId majburiy" });
+      return;
+    }
+    const [place] = await db.select().from(bordoPlacesTable).where(eq(bordoPlacesTable.id, placeId)).limit(1);
+    if (!place || !place.active) {
+      res.status(404).json({ error: "Davomat joyi topilmadi" });
+      return;
+    }
+    const prev = await getActiveQrForPlace(placeId);
+    await revokeActiveQrForPlace(placeId);
+    const secrets = mintQrSecrets();
+    const version = (prev?.version ?? 0) + 1;
+    const payload = encodeQrPayload(secrets.qrId, secrets.rawToken);
+    const [row] = await db
+      .insert(placeAttendanceQrTable)
+      .values({
+        qrId: secrets.qrId,
+        placeId,
+        placeLabel: place.name,
+        tokenHash: secrets.tokenHash,
+        tokenPayload: payload,
+        version,
+        status: "active",
+        createdById: req.userId!,
+        expiresAt: null,
+      })
+      .returning();
+    res.json({
+      ok: true,
+      qrId: row.qrId,
+      placeId,
+      placeLabel: place.name,
+      version: row.version,
+      payload,
+      radiusMeters: place.radiusMeters > 0 ? place.radiusMeters : 100,
+      note: "QR shu joyga bog‘landi. Skaner faqat shu joy hududida qabul qilinadi.",
+    });
+  } catch (err) {
+    console.error("POST /davomat/qr/place/issue error:", err);
+    res.status(503).json({ error: "QR yaratilmadi" });
+  }
+});
+
+router.delete("/davomat/qr/place/active/:placeId", requireAuth, async (req: AuthRequest, res): Promise<void> => {
+  if (!canEditPlaceQr(req.userRole)) {
+    res.status(403).json({ error: "QR o‘chirish faqat admin uchun", code: "qr_forbidden" });
+    return;
+  }
+  const placeId = Number(req.params.placeId);
+  if (!Number.isFinite(placeId)) {
+    res.status(400).json({ error: "placeId noto‘g‘ri" });
+    return;
+  }
+  const before = await getActiveQrForPlace(placeId);
+  if (!before) {
+    res.json({ ok: true, revoked: false });
+    return;
+  }
+  await revokeActiveQrForPlace(placeId);
+  res.json({ ok: true, revoked: true, qrId: before.qrId, version: before.version });
+});
+
 /** QR ro‘yxat / ko‘rish — mudir, koordinator, admin */
 router.get("/davomat/qr/branches", requireAuth, async (req: AuthRequest, res): Promise<void> => {
   if (!canViewBranchQr(req.userRole)) {
@@ -6910,6 +7034,149 @@ router.post("/davomat/qr-punch", requireAuth, async (req: AuthRequest, res): Pro
     const effective = await effectiveBranchIdForDay(emp);
     const myBranchId = effective.branchId;
     const myDeptId = user.departmentId;
+
+    const placeQr = await verifyPlaceQrPayload(payload);
+    if (placeQr.ok) {
+      const [place] = await db
+        .select()
+        .from(bordoPlacesTable)
+        .where(eq(bordoPlacesTable.id, placeQr.row.placeId))
+        .limit(1);
+      if (!place || !place.active) {
+        res.status(404).json({ error: "Bu QR joyi o‘chirilgan yoki topilmadi", code: "place_missing" });
+        return;
+      }
+      try {
+        await applyBordoAttendanceForEmployee(emp, user.role);
+      } catch (err) {
+        console.error("bordo shift apply (qr):", err);
+      }
+      const assigned = await resolveBordoPlaceForUser(user.id, user.role).catch(() => null);
+      if (!adminAnywhere && assigned && assigned.id !== place.id) {
+        await writePunchAudit({
+          employeeId: emp.id,
+          userId: user.id,
+          verificationMethod: "QR",
+          action,
+          qrResult: "wrong_place",
+          finalResult: "denied",
+          failureReason: "qr_wrong_place",
+          ipAddress: ip,
+          deviceId,
+          meta: { qrPlaceId: place.id, assignedPlaceId: assigned.id },
+        });
+        res.status(403).json({
+          error: `Bu QR «${place.name}» joyi uchun. Sizning joyingiz «${assigned.name}».`,
+          code: "qr_wrong_place",
+          placeLabel: place.name,
+        });
+        return;
+      }
+      const placeLat = place.latitude;
+      const placeLng = place.longitude;
+      const hasPlaceGps = placeLat != null && placeLng != null && Number.isFinite(placeLat) && Number.isFinite(placeLng);
+      if (!hasPlaceGps && !adminAnywhere) {
+        res.status(400).json({
+          error: `«${place.name}» koordinatasi kiritilmagan. Avval joy lokatsiyasini saqlang.`,
+          code: "place_gps_missing",
+        });
+        return;
+      }
+      let mobileAnywhere = false;
+      try {
+        mobileAnywhere = await employeeHasMobileAnywhere(emp.id, emp.userId ?? user.id);
+      } catch {
+        mobileAnywhere = false;
+      }
+      const allowedMeters = place.radiusMeters > 0 ? place.radiusMeters : 100;
+      const latitude = hasGps ? latitudeRaw : placeLat ?? 0;
+      const longitude = hasGps ? longitudeRaw : placeLng ?? 0;
+      const distanceMeters =
+        hasGps && hasPlaceGps ? haversineMeters(latitude, longitude, placeLat!, placeLng!) : 0;
+      const skipFence = adminAnywhere || mobileAnywhere;
+      if (!skipFence && distanceMeters > allowedMeters + 8) {
+        const remainMeters = Math.max(0, Math.round(distanceMeters - allowedMeters));
+        await writePunchAudit({
+          employeeId: emp.id,
+          userId: user.id,
+          verificationMethod: "QR",
+          action,
+          gpsResult: "outside",
+          gpsDistance: Math.round(distanceMeters),
+          qrResult: "ok",
+          finalResult: "denied",
+          failureReason: "outside_geofence",
+          ipAddress: ip,
+          deviceId,
+          meta: { placeId: place.id, distanceMeters, allowedMeters },
+        });
+        res.status(403).json({
+          error: `«${place.name}» hududida emassiz (${Math.round(distanceMeters)} m). Yana ${remainMeters} m yaqinlashib, shu joy QR ini qayta skanerlang.`,
+          code: "outside_geofence",
+          distanceMeters: Math.round(distanceMeters),
+          remainMeters,
+          allowedMeters,
+          placeLabel: place.name,
+        });
+        return;
+      }
+      const punched = await applyFacePunch({
+        emp,
+        userRole: user.role,
+        latitude,
+        longitude,
+        distanceMeters,
+        allowedMeters: skipFence ? Math.max(allowedMeters, 999_999) : allowedMeters,
+        faceProfileId: null,
+        action,
+        verificationMethod: "QR",
+        resolvedBranchLabel: place.name,
+        notes: typeof req.body?.notes === "string" ? req.body.notes : null,
+      });
+      if (!punched.ok) {
+        await writePunchAudit({
+          employeeId: emp.id,
+          userId: user.id,
+          verificationMethod: "QR",
+          action,
+          gpsResult: skipFence ? "admin_bypass" : "ok",
+          gpsDistance: Math.round(distanceMeters),
+          qrResult: "ok",
+          finalResult: "denied",
+          failureReason: String(punched.body.error || punched.body.code || "denied"),
+          ipAddress: ip,
+          deviceId,
+        });
+        res.status(punched.status).json(punched.body);
+        return;
+      }
+      await writePunchAudit({
+        employeeId: emp.id,
+        userId: user.id,
+        verificationMethod: "QR",
+        action,
+        gpsResult: skipFence ? "admin_bypass" : "ok",
+        gpsDistance: Math.round(distanceMeters),
+        qrResult: "ok",
+        finalResult: "success",
+        ipAddress: ip,
+        deviceId,
+        meta: { placeId: place.id, placeLabel: place.name },
+      });
+      const own = await ownEmployeeReport(emp.id);
+      res.json({
+        ...punched.payload,
+        employee: own.employee,
+        branchLabel: place.name,
+        placeLabel: place.name,
+        adminQrAnywhere: adminAnywhere || undefined,
+      });
+      return;
+    }
+    if (placeQr.code !== "qr_unknown") {
+      res.status(400).json({ error: placeQr.error, code: placeQr.code });
+      return;
+    }
 
     const branchQr = await verifyBranchQrPayload(payload);
     if (branchQr.ok) {

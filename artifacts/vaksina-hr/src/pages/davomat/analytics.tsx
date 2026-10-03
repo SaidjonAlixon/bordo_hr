@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useSearch } from "wouter";
+import { Link } from "wouter";
 import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
-  Building2,
   CalendarDays,
   Clock,
   Download,
@@ -38,7 +37,7 @@ import {
 } from "recharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n/I18nProvider";
-import { canViewDavomat, canViewFullDavomatDashboard, normalizeUserRole } from "@/lib/roles";
+import { canViewDavomat } from "@/lib/roles";
 import {
   type DavomatAnalytics,
   type DavomatSegment,
@@ -70,12 +69,6 @@ const PRESET_BUTTONS: { key: AnalyticsRangePreset; labelKey: string }[] = [
   { key: "7d", labelKey: "davomat.days7" },
   { key: "30d", labelKey: "davomat.days30" },
   { key: "month", labelKey: "ui.month" },
-];
-
-const SEGMENT_OPTIONS: { key: DavomatSegment; labelKey: string; hintKey: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { key: "office", labelKey: "davomat.segOffice", hintKey: "davomat.segOfficeHint", icon: Building2 },
-  { key: "pharmacy", labelKey: "davomat.segPharm", hintKey: "davomat.segPharmHint", icon: Store },
-  { key: "all", labelKey: "davomat.segAll", hintKey: "davomat.segAllHint", icon: Users },
 ];
 
 function formatLateHours(minutes: number): string {
@@ -902,17 +895,10 @@ export function DavomatAnalyticsDashboard({
 }) {
   const { user } = useAuth();
   const { t } = useI18n();
-  const search = useSearch();
-  const fullDash = canViewFullDavomatDashboard(user?.role);
-  const pharmacyScope = normalizeUserRole(user?.role) === "koordinator";
   const segmentFromUrl = useMemo(() => {
-    if (pharmacyScope) return "pharmacy" as DavomatSegment;
-    if (!fullDash) return "all" as DavomatSegment;
-    if (embedded) return initialSegment;
-    const seg = new URLSearchParams(search).get("segment");
-    if (seg === "office" || seg === "pharmacy" || seg === "all") return seg;
-    return "office";
-  }, [embedded, initialSegment, search, fullDash, pharmacyScope]);
+    if (embedded) return initialSegment === "pharmacy" ? "office" : initialSegment;
+    return "office" as DavomatSegment;
+  }, [embedded, initialSegment]);
   const [preset, setPreset] = useState<RangePreset>("today");
   const [dynamicsChart, setDynamicsChart] = useState<"line" | "bar" | "both">("both");
   const [customFrom, setCustomFrom] = useState(() => addDaysYmd(tashkentTodayYmd(), -6));
@@ -1320,47 +1306,6 @@ export function DavomatAnalyticsDashboard({
             ) : null}
           </div>
         </div>
-
-        {fullDash ? (
-        <div className="grid gap-2 sm:grid-cols-3">
-          {SEGMENT_OPTIONS.map((opt) => {
-            const Icon = opt.icon;
-            const active = segment === opt.key;
-            const segStats =
-              opt.key === "office"
-                ? data?.segments.office
-                : opt.key === "pharmacy"
-                  ? data?.segments.pharmacy
-                  : null;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => setSegment(opt.key)}
-                className={cn(
-                  "analytics-segment",
-                  active && "analytics-segment-active",
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={cn("rounded-lg p-2", active ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="font-medium">{t(opt.labelKey)}</p>
-                    <p className="text-xs text-muted-foreground">{t(opt.hintKey)}</p>
-                  </div>
-                </div>
-                {segStats && opt.key !== "all" ? (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {segStats.headcount} {t("ui.employees").toLowerCase()} · <span className="font-semibold text-emerald-600 dark:text-emerald-400">{segStats.attendanceRate}%</span> {t("davomat.attRate")}
-                  </p>
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-        ) : null}
 
         {isError ? (
           <div className="flex flex-col items-center gap-3 rounded-xl border border-rose-500/25 bg-rose-500/10 p-6 text-center text-rose-700 dark:text-rose-200">

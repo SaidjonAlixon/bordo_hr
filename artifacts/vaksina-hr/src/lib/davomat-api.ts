@@ -680,6 +680,45 @@ export function confirmZonePresence(body: {
   });
 }
 
+export type QrPlaceRow = {
+  id: number;
+  name: string;
+  isMain: boolean;
+  latitude: number | null;
+  longitude: number | null;
+  radiusMeters: number;
+  hasCoords: boolean;
+  hasActiveQr: boolean;
+  qrId: string | null;
+  version: number | null;
+  createdAt: string | null;
+  payload: string | null;
+  needsReissue: boolean;
+};
+
+export function fetchQrPlaces(): Promise<{ places: QrPlaceRow[]; canEdit: boolean }> {
+  return apiJson("/davomat/qr/places");
+}
+
+export function issuePlaceQr(placeId: number): Promise<{
+  ok: boolean;
+  qrId: string;
+  placeId: number;
+  placeLabel: string;
+  version: number;
+  payload: string;
+  radiusMeters: number;
+}> {
+  return apiJson("/davomat/qr/place/issue", {
+    method: "POST",
+    body: JSON.stringify({ placeId }),
+  });
+}
+
+export function revokePlaceQr(placeId: number): Promise<{ ok: boolean; revoked: boolean }> {
+  return apiJson(`/davomat/qr/place/active/${placeId}`, { method: "DELETE" });
+}
+
 export type QrBranchRow = {
   id: number;
   name: string;

@@ -159,6 +159,15 @@ function requireAdminOnly(req: AuthRequest, res: import("express").Response): bo
   return true;
 }
 
+async function actorIsChief(req: AuthRequest): Promise<boolean> {
+  const [actor] = await db
+    .select({ isChief: usersTable.isChief })
+    .from(usersTable)
+    .where(eq(usersTable.id, req.userId ?? 0))
+    .limit(1);
+  return Boolean(actor?.isChief);
+}
+
 function latinSlug(input: string): string {
   const map: Record<string, string> = {
     а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "yo", ж: "j", з: "z",
@@ -278,10 +287,8 @@ router.get("/users", async (req, res): Promise<void> => {
 
 /** Admin — barcha foydalanuvchilar + login/parol Excel */
 router.get("/users/export", requireAuth, async (req: AuthRequest, res): Promise<void> => {
-  if (!canManageUsers(req.userRole)) {
-    res.status(403).json({ error: "Excel yuklash faqat admin uchun" });
-    return;
-  }
+  if (!requireUsersAdmin(req, res)) return;
+  const viewerIsChief = await actorIsChief(req);
 
   const rows = await db
     .select({
@@ -370,7 +377,7 @@ router.get("/users/export", requireAuth, async (req: AuthRequest, res): Promise<
       fullName: u.fullName,
       role: adminTitle(u.role, u.isChief),
       login: u.login,
-      password: u.password,
+      password: u.isChief && !viewerIsChief ? "—" : u.password,
       phone: u.phone || "—",
       department: u.departmentName || "—",
       status: STATUS_UZ[u.status] || u.status,
@@ -597,6 +604,10 @@ router.post("/users/:id/enter", requireAuth, async (req: AuthRequest, res): Prom
     res.status(404).json({ error: "Topilmadi" });
     return;
   }
+  if (row.isChief) {
+    res.status(400).json({ error: "Bosh admin akkauntiga kirib bo‘lmaydi" });
+    return;
+  }
   if (!canSignIn(row.status)) {
     res.status(403).json({ error: "Bu holatdagi akkauntga kirib bo‘lmaydi" });
     return;
@@ -668,6 +679,10 @@ router.post("/users/:id/regenerate-login", requireAuth, async (req: AuthRequest,
     res.status(404).json({ error: "Topilmadi" });
     return;
   }
+  if (row.isChief) {
+    res.status(400).json({ error: "Bosh admin loginini yangilab bo‘lmaydi" });
+    return;
+  }
 
   const login = await uniqueLogin(row.role, row.fullName);
   const temporaryPassword = randomPassword(8);
@@ -699,6 +714,10 @@ router.patch("/users/:id", requireAuth, async (req: AuthRequest, res): Promise<v
     .limit(1);
   if (!existing) {
     res.status(404).json({ error: "Topilmadi" });
+    return;
+  }
+  if (existing.isChief && !(await actorIsChief(req))) {
+    res.status(403).json({ error: "Bosh adminni o‘zgartirib bo‘lmaydi" });
     return;
   }
 

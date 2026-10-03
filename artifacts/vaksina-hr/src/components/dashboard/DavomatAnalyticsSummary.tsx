@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "wouter";
-import { ArrowRight, BarChart3, Building2, Clock, Store, TrendingUp, Users } from "lucide-react";
+import { ArrowRight, BarChart3, Building2, Clock, TrendingUp, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { rangeForPreset, useDavomatAnalytics } from "@/lib/davomat-analytics-api";
 import { cn } from "@/lib/utils";
@@ -17,7 +17,7 @@ export function DavomatAnalyticsSummary({ enabled }: { enabled: boolean }) {
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-sky-300">Dashboard</p>
           <h2 className="text-lg font-bold text-white md:text-xl">Davomat tahlili — KPI</h2>
-          <p className="text-sm text-muted-foreground">1. Ofis · 2. Dorixona · 3. Hammasi · 30 kunlik ko‘rinish</p>
+          <p className="text-sm text-muted-foreground">BORDO xodimlari · 30 kunlik ko‘rinish</p>
         </div>
         <Link href="/davomat/analytics">
           <span className="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500">
@@ -27,9 +27,9 @@ export function DavomatAnalyticsSummary({ enabled }: { enabled: boolean }) {
         </Link>
       </div>
 
-      <div className="grid gap-3 p-4 md:grid-cols-2 md:p-6 xl:grid-cols-4">
+      <div className="grid gap-3 p-4 md:grid-cols-3 md:p-6">
         {isLoading ? (
-          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl bg-slate-800/80" />)
+          Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl bg-slate-800/80" />)
         ) : (
           <>
             <MiniStat
@@ -41,17 +41,10 @@ export function DavomatAnalyticsSummary({ enabled }: { enabled: boolean }) {
             />
             <MiniStat
               icon={Building2}
-              label="Ofis"
+              label="Xodimlar"
               value={`${data?.segments.office.attendanceRate ?? 0}%`}
               sub={`${data?.segments.office.headcount ?? 0} xodim`}
               accent="text-emerald-300"
-            />
-            <MiniStat
-              icon={Store}
-              label="Dorixona"
-              value={`${data?.segments.pharmacy.attendanceRate ?? 0}%`}
-              sub={`${data?.segments.pharmacy.headcount ?? 0} xodim`}
-              accent="text-violet-300"
             />
             <MiniStat
               icon={Clock}

@@ -445,6 +445,7 @@ export default function AdminUsersPage() {
 
   const setUserStatus = (u: User, next: string) => {
     if (!canChangeStatus) return;
+    if ((u as { isChief?: boolean }).isChief) return;
     if (u.id === me?.id && next !== 'active') {
       toast({ title: 'O‘zingizni faoldan chiqara olmaysiz', variant: 'destructive' });
       return;
@@ -472,6 +473,7 @@ export default function AdminUsersPage() {
 
   const enterAccount = async (u: User) => {
     if (!isAdmin || enteringId) return;
+    if ((u as { isChief?: boolean }).isChief) return;
     const status = normalizeUserStatus(u.status);
     if (status !== 'active' && status !== 'on_leave') {
       toast({ title: 'Bu holatdagi akkauntga kirib bo‘lmaydi', variant: 'destructive' });
@@ -498,6 +500,7 @@ export default function AdminUsersPage() {
 
   const onRegenerateLogin = async (u: User) => {
     if (!isAdmin) return;
+    if ((u as { isChief?: boolean }).isChief) return;
     if (u.id === me?.id) {
       toast({ title: 'O‘zingizning loginni shu yerda yangilay olmaysiz', variant: 'destructive' });
       return;
@@ -748,7 +751,7 @@ export default function AdminUsersPage() {
                           <Select
                             value={normalizeUserStatus(u.status)}
                             onValueChange={(v) => setUserStatus(u, v)}
-                            disabled={u.id === me?.id}
+                            disabled={u.id === me?.id || Boolean((u as { isChief?: boolean }).isChief)}
                           >
                             <SelectTrigger
                               className={cn(
@@ -778,6 +781,7 @@ export default function AdminUsersPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
+                        {!(u as { isChief?: boolean }).isChief ? (
                         <div className="flex items-center justify-end gap-0.5">
                           <Button
                             variant="ghost"
@@ -809,7 +813,7 @@ export default function AdminUsersPage() {
                               <KeyRound className="h-4 w-4" />
                             )}
                           </Button>
-                          {canDelete && !(u as { isChief?: boolean }).isChief ? (
+                          {canDelete ? (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -822,6 +826,7 @@ export default function AdminUsersPage() {
                             </Button>
                           ) : null}
                         </div>
+                        ) : null}
                       </td>
                     </tr>
                   ))

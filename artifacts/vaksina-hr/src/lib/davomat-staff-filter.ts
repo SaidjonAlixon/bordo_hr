@@ -428,12 +428,11 @@ export function matchesOfficeInner(
 }
 
 export const STAFF_FILTER_OPTIONS: Array<{
-  key: "all" | "pharmacy" | "office";
+  key: "all" | "office";
   label: string;
   hint: string;
   hours: string;
 }> = [
   { key: "all", label: "Hammasi", hint: "Barcha xodimlar", hours: "Turiga qarab" },
-  { key: "pharmacy", label: "Dorixona", hint: "Smenalar bo‘yicha", hours: "Smenaga qarab" },
-  { key: "office", label: "Ofis", hint: "09:00 – 18:00", hours: "09:00–18:00" },
+  { key: "office", label: "Xodimlar", hint: "Ofis va bo‘limlar", hours: "Lavozimga qarab" },
 ];

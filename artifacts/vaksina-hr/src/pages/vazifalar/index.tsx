@@ -2156,7 +2156,6 @@ export default function VazifalarPage() {
                 <SelectContent>
                   <SelectItem value="all">{t("tasks.filter.allWorkplace")}</SelectItem>
                   <SelectItem value="ofis">{t("emp.ofis")}</SelectItem>
-                  <SelectItem value="dorixona">{t("emp.dorixona")}</SelectItem>
                 </SelectContent>
               </Select>
 

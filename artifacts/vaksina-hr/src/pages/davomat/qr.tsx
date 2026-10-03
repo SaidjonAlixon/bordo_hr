@@ -6,34 +6,36 @@ import {
   FileImage,
   FileText,
   Loader2,
+  MapPin,
   QrCode,
   RefreshCw,
   ScanLine,
   Trash2,
-  XCircle,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "../../components/ui/button";
 import { useToast } from "../../hooks/use-toast";
 import { useAuth } from "../../contexts/AuthContext";
 import { QrScanDialog, primeQrCamera } from "../../components/QrScanDialog";
-import {
-  fetchActiveBranchQr,
-  fetchActiveDepartmentQr,
-  fetchDavomatMethods,
-  fetchQrBranches,
-  fetchQrDepartments,
-  issueBranchQr,
-  issueDepartmentQr,
-  qrPunchDavomat,
-  revokeBranchQr,
-  revokeDepartmentQr,
-} from "../../lib/davomat-api";
+import { fetchQrPlaces, issuePlaceQr, qrPunchDavomat, revokePlaceQr, type QrPlaceRow } from "../../lib/davomat-api";
 import { downloadAllQrPdf, downloadQrPdf, downloadQrPng, renderQrToCanvas } from "../../lib/qr-render";
-import { canManageSettings, isDeptHeadRole, isDirectorRole, hasFullPlatformAccess } from "../../lib/roles";
+import { hasFullPlatformAccess, isDeptHeadRole, isDirectorRole } from "../../lib/roles";
 import { cn } from "../../lib/utils";
 
-function QrCanvasItem({ payload, size = 240 }: { payload: string; size?: number }) {
+function formatCoord(lat: number, lng: number): string {
+  const latAbs = Math.abs(lat);
+  const lngAbs = Math.abs(lng);
+  const latD = Math.floor(latAbs);
+  const latM = Math.floor((latAbs - latD) * 60);
+  const latS = ((latAbs - latD) * 60 - latM) * 60;
+  const lngD = Math.floor(lngAbs);
+  const lngM = Math.floor((lngAbs - lngD) * 60);
+  const lngS = ((lngAbs - lngD) * 60 - lngM) * 60;
+  const s = (n: number) => n.toFixed(1).padStart(4, "0");
+  return `${latD}°${String(latM).padStart(2, "0")}'${s(latS)}"${lat >= 0 ? "N" : "S"} ${lngD}°${String(lngM).padStart(2, "0")}'${s(lngS)}"${lng >= 0 ? "E" : "W"}`;
+}
+
+function QrCanvasItem({ payload, size = 280 }: { payload: string; size?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     if (!payload) return;
@@ -44,7 +46,7 @@ function QrCanvasItem({ payload, size = 240 }: { payload: string; size?: number 
       try {
         await renderQrToCanvas(ref.current, payload, size);
       } catch {
-        /* ignore paint errors per-item */
+        /* paint */
       }
     })();
     return () => {
@@ -57,40 +59,23 @@ function QrCanvasItem({ payload, size = 240 }: { payload: string; size?: number 
       ref={ref}
       width={size}
       height={size}
-      className="h-[min(240px,68vw)] w-[min(240px,68vw)] max-w-full sm:h-[240px] sm:w-[240px]"
+      className="h-[min(280px,72vw)] w-[min(280px,72vw)] max-w-full"
     />
   );
 }
 
-type GalleryQr = {
-  id: number;
-  name: string;
-  version: number | null;
-  payload: string | null;
-  needsReissue: boolean;
-};
-
-type Scope = "branches" | "departments";
-
-type Props = {
-  /** Admin: o‘chirish + barcha filiallar/bo‘limlar */
-  adminMode?: boolean;
-};
-
-export default function DavomatQrPage({ adminMode = false }: Props) {
+export default function DavomatQrPage({ adminMode = false }: { adminMode?: boolean }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
-  const [scope, setScope] = useState<Scope>("branches");
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [needsReissue, setNeedsReissue] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [qrStream, setQrStream] = useState<MediaStream | null>(null);
   const [scanAction, setScanAction] = useState<"in" | "out">("in");
-  const [gallery, setGallery] = useState<GalleryQr[]>([]);
-  const [galleryLoading, setGalleryLoading] = useState(false);
-  const [galleryTick, setGalleryTick] = useState(0);
   const [bulkPdfBusy, setBulkPdfBusy] = useState(false);
+
+  const canEdit = adminMode || hasFullPlatformAccess(user?.role);
+  const canView = canEdit || isDirectorRole(user?.role) || isDeptHeadRole(user?.role);
 
   useEffect(() => {
     if (scanOpen) return;
@@ -100,262 +85,66 @@ export default function DavomatQrPage({ adminMode = false }: Props) {
     });
   }, [scanOpen]);
 
-  const isAdmin = adminMode || canManageSettings(user?.role);
-  /** Admin/asoschi: istalgan filial/bo‘lim QR + lokatsiyasiz skaner */
-  const adminQrAnywhere = hasFullPlatformAccess(user?.role);
-  const isMudir = user?.role === "mudir";
-  const isKoordinator = user?.role === "koordinator";
-  /** Filial QR yaratish — admin/asoschi va koordinator */
-  const canEditBranch = hasFullPlatformAccess(user?.role) || isKoordinator;
-
-  const methodsQ = useQuery({
-    queryKey: ["davomat-methods"],
-    queryFn: fetchDavomatMethods,
-    enabled: Boolean(user),
-  });
-
-  const canBranch =
-    Boolean(methodsQ.data?.canViewBranchQr) ||
-    Boolean(methodsQ.data?.canManageBranchQr) ||
-    isMudir ||
-    isKoordinator ||
-    hasFullPlatformAccess(user?.role) ||
-    isDirectorRole(user?.role);
-  /** Ofis QR sahifasi — faqat admin/direktor/bo‘lim boshliqlari (oddiy xodim emas) */
-  const canDept =
-    Boolean(methodsQ.data?.canViewDeptQr) ||
-    Boolean(methodsQ.data?.canManageDeptQr) ||
-    isDeptHeadRole(user?.role) ||
-    isAdmin;
-  /** Ofis QR yaratish/o‘chirish — admin/asoschi */
-  const canEditDept = hasFullPlatformAccess(user?.role);
-  /** Filial: admin/koordinator; ofis: faqat admin */
-  const canEditQr = scope === "branches" ? canEditBranch : canEditDept;
-
   useEffect(() => {
-    if (methodsQ.isLoading) return;
-    if (canBranch && !canDept) setScope("branches");
-    else if (!canBranch && canDept) setScope("departments");
-  }, [methodsQ.isLoading, canBranch, canDept]);
+    void primeQrCamera();
+  }, []);
 
-  useEffect(() => {
-    setSelectedId(null);
-    setNeedsReissue(false);
-    setGallery([]);
-  }, [scope]);
-
-  const branchQ = useQuery({
-    queryKey: ["davomat-qr-branches"],
-    queryFn: fetchQrBranches,
-    enabled: Boolean(user) && scope === "branches" && canBranch,
+  const placesQ = useQuery({
+    queryKey: ["davomat-qr-places"],
+    queryFn: fetchQrPlaces,
+    enabled: Boolean(user) && canView,
   });
 
-  const deptQ = useQuery({
-    queryKey: ["davomat-qr-departments"],
-    queryFn: fetchQrDepartments,
-    enabled: Boolean(user) && scope === "departments" && canDept,
-  });
-
-  const listLoading = scope === "branches" ? branchQ.isLoading : deptQ.isLoading;
-  const listError = scope === "branches" ? branchQ.isError : deptQ.isError;
-  const listErrorMsg =
-    scope === "branches"
-      ? (branchQ.error as Error)?.message
-      : (deptQ.error as Error)?.message;
-
-  const branches = branchQ.data?.branches;
-  const departments = deptQ.data?.departments;
-
-  const items: Array<{
-    id: number;
-    name: string;
-    hasActiveQr: boolean;
-    version: number | null;
-    managerName?: string;
-  }> = useMemo(() => {
-    if (scope === "branches") {
-      return (branches ?? []).map((b) => ({
-        id: b.id,
-        name: b.name,
-        hasActiveQr: b.hasActiveQr,
-        version: b.version,
-        managerName: b.managerName,
-      }));
-    }
-    return (departments ?? []).map((d) => ({
-      id: d.id,
-      name: d.name,
-      hasActiveQr: d.hasActiveQr,
-      version: d.version,
-    }));
-  }, [scope, branches, departments]);
-
+  const places = placesQ.data?.places ?? [];
   const selected = useMemo(
-    () => items.find((b) => b.id === selectedId) ?? null,
-    [items, selectedId],
-  );
-
-  const activeCount = useMemo(() => items.filter((b) => b.hasActiveQr).length, [items]);
-
-  /** Stable key — items massivi har renderda yangilanmasin, gallery loop bo‘lmasin */
-  const galleryKey = useMemo(
-    () =>
-      items
-        .filter((b) => b.hasActiveQr)
-        .map((b) => `${b.id}:${b.version ?? 0}`)
-        .join("|"),
-    [items],
+    () => places.find((p) => p.id === selectedId) ?? null,
+    [places, selectedId],
   );
 
   useEffect(() => {
-    let cancelled = false;
-    const withQr = items.filter((b) => b.hasActiveQr);
-    if (!withQr.length) {
-      setGallery([]);
-      setGalleryLoading(false);
-      return;
-    }
-    setGalleryLoading(true);
-    void (async () => {
-      try {
-        const rows = await Promise.all(
-          withQr.map(async (b) => {
-            try {
-              if (scope === "branches") {
-                const r = await fetchActiveBranchQr(b.id);
-                return {
-                  id: b.id,
-                  name: r.active?.branchLabel || b.name,
-                  version: r.active?.version ?? b.version,
-                  payload: r.active?.payload || null,
-                  needsReissue: Boolean(r.active?.needsReissue || !r.active?.payload),
-                } satisfies GalleryQr;
-              }
-              const r = await fetchActiveDepartmentQr(b.id);
-              return {
-                id: b.id,
-                name: r.active?.departmentLabel || b.name,
-                version: r.active?.version ?? b.version,
-                payload: r.active?.payload || null,
-                needsReissue: Boolean(r.active?.needsReissue || !r.active?.payload),
-              } satisfies GalleryQr;
-            } catch {
-              return {
-                id: b.id,
-                name: b.name,
-                version: b.version,
-                payload: null,
-                needsReissue: true,
-              } satisfies GalleryQr;
-            }
-          }),
-        );
-        if (!cancelled) setGallery(rows);
-      } finally {
-        if (!cancelled) setGalleryLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // galleryKey o‘zgaganda qayta yuklash; items shu key bilan sync
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [galleryKey, galleryTick, scope]);
+    if (selectedId != null || !places.length) return;
+    const main = places.find((p) => p.isMain);
+    const withQr = places.find((p) => p.hasActiveQr && p.payload);
+    setSelectedId((main || withQr || places[0])!.id);
+  }, [places, selectedId]);
 
-  const loadActive = useMutation({
-    mutationFn: (id: number) =>
-      scope === "branches" ? fetchActiveBranchQr(id) : fetchActiveDepartmentQr(id),
-    onSuccess: (r) => {
-      setNeedsReissue(Boolean(r.active && (r.active.needsReissue || !r.active.payload)));
-    },
-  });
-
-  useEffect(() => {
-    if (selectedId == null) return;
-    loadActive.mutate(selectedId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, scope]);
-
-  useEffect(() => {
-    if (selectedId != null || !items.length) return;
-    const office = items.find((b) => b.id === 0 || ("sharedOffice" in b && (b as { sharedOffice?: boolean }).sharedOffice));
-    const withQr = items.find((b) => b.hasActiveQr);
-    setSelectedId((office || withQr || items[0]!).id);
-  }, [items, selectedId]);
+  const active = places.filter((p) => p.payload);
 
   const issue = useMutation({
-    mutationFn: (id: number) =>
-      scope === "branches" ? issueBranchQr(id) : issueDepartmentQr(id),
+    mutationFn: (id: number) => issuePlaceQr(id),
     onSuccess: async (r) => {
-      setNeedsReissue(false);
-      const id = "branchId" in r ? r.branchId : r.departmentId;
-      setSelectedId(id);
-      // Galereyaga darhol qo‘shish (kutmasdan)
-      if (r.payload) {
-        const label =
-          "branchLabel" in r
-            ? r.branchLabel
-            : "departmentLabel" in r
-              ? r.departmentLabel
-              : selected?.name || `ID ${id}`;
-        setGallery((prev) => {
-          const next: GalleryQr = {
-            id,
-            name: label,
-            version: r.version ?? null,
-            payload: r.payload,
-            needsReissue: false,
-          };
-          const rest = prev.filter((g) => g.id !== id);
-          return [next, ...rest];
-        });
-      }
-      await qc.invalidateQueries({
-        queryKey: scope === "branches" ? ["davomat-qr-branches"] : ["davomat-qr-departments"],
-      });
-      setGalleryTick((n) => n + 1);
+      setSelectedId(r.placeId);
+      await qc.invalidateQueries({ queryKey: ["davomat-qr-places"] });
       toast({
         title: "QR saqlandi",
-        description:
-          scope === "branches"
-            ? "Filial QR tizimda saqlandi — mudir va koordinator ko‘ra oladi."
-            : id === 0
-              ? "Ofis QR saqlandi — faqat ofis xodimlari. Apteka xodimlari filial QR ishlatadi."
-              : "Bo‘lim QR saqlandi — istalgan vaqtda ko‘rish mumkin.",
+        description: `«${r.placeLabel}» uchun QR yaratildi. Skaner faqat shu joy hududida ishlaydi.`,
       });
     },
     onError: (e: Error) => toast({ title: "Xato", description: e.message, variant: "destructive" }),
   });
 
   const revoke = useMutation({
-    mutationFn: (id: number) =>
-      scope === "branches" ? revokeBranchQr(id) : revokeDepartmentQr(id),
-    onSuccess: () => {
-      setNeedsReissue(false);
-      void qc.invalidateQueries({
-        queryKey: scope === "branches" ? ["davomat-qr-branches"] : ["davomat-qr-departments"],
-      });
-      setGalleryTick((n) => n + 1);
-      toast({ title: "QR o‘chirildi (bekor qilindi)" });
+    mutationFn: (id: number) => revokePlaceQr(id),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["davomat-qr-places"] });
+      toast({ title: "QR o‘chirildi" });
     },
     onError: (e: Error) => toast({ title: "O‘chirilmadi", description: e.message, variant: "destructive" }),
   });
 
-  async function onDownloadPng(text: string, id: number) {
+  async function onDownloadPng(place: QrPlaceRow) {
+    if (!place.payload) return;
     try {
-      await downloadQrPng(text, `davomat-qr-${scope}-${id}.png`);
+      await downloadQrPng(place.payload, `davomat-qr-${place.id}.png`);
     } catch (e) {
       toast({ title: "PNG yuklanmadi", description: (e as Error).message, variant: "destructive" });
     }
   }
 
-  async function onDownloadPdf(text: string, label: string, id: number) {
+  async function onDownloadPdf(place: QrPlaceRow) {
+    if (!place.payload) return;
     try {
-      await downloadQrPdf(
-        text,
-        label || (scope === "branches" ? "Filial QR" : "Bo‘lim QR"),
-        `davomat-qr-${scope}-${id}.pdf`,
-      );
+      await downloadQrPdf(place.payload, place.name, `davomat-qr-${place.id}.pdf`);
       toast({ title: "PDF yuklandi" });
     } catch (e) {
       toast({ title: "PDF yuklanmadi", description: (e as Error).message, variant: "destructive" });
@@ -363,282 +152,88 @@ export default function DavomatQrPage({ adminMode = false }: Props) {
   }
 
   async function onDownloadAllPdf() {
+    const source = places.filter((p) => p.payload);
+    if (!source.length) {
+      toast({ title: "PDF", description: "Faol QR yo‘q — avval joy tanlab QR yarating", variant: "destructive" });
+      return;
+    }
     setBulkPdfBusy(true);
     try {
-      let source = gallery.filter((g) => g.payload?.trim());
-
-      if (!source.length) {
-        const withQr = items.filter((b) => b.hasActiveQr);
-        if (!withQr.length) {
-          toast({
-            title: "PDF",
-            description: "Faol QR yo‘q — avval QR yarating",
-            variant: "destructive",
-          });
-          return;
-        }
-        const rows = await Promise.all(
-          withQr.map(async (b) => {
-            try {
-              if (scope === "branches") {
-                const r = await fetchActiveBranchQr(b.id);
-                return {
-                  id: b.id,
-                  name: r.active?.branchLabel || b.name,
-                  version: r.active?.version ?? b.version,
-                  payload: r.active?.payload || null,
-                  needsReissue: Boolean(r.active?.needsReissue || !r.active?.payload),
-                } satisfies GalleryQr;
-              }
-              const r = await fetchActiveDepartmentQr(b.id);
-              return {
-                id: b.id,
-                name: r.active?.departmentLabel || b.name,
-                version: r.active?.version ?? b.version,
-                payload: r.active?.payload || null,
-                needsReissue: Boolean(r.active?.needsReissue || !r.active?.payload),
-              } satisfies GalleryQr;
-            } catch {
-              return {
-                id: b.id,
-                name: b.name,
-                version: b.version,
-                payload: null,
-                needsReissue: true,
-              } satisfies GalleryQr;
-            }
-          }),
-        );
-        source = rows.filter((r) => r.payload?.trim());
-      }
-
-      if (!source.length) {
-        toast({
-          title: "PDF",
-          description: "Yuklash uchun saqlangan QR topilmadi",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const pdfItems = source
-        .map((g) => {
-          const idx = items.findIndex((b) => b.id === g.id);
-          return {
-            n: idx >= 0 ? idx + 1 : 0,
-            title: g.name,
-            payload: g.payload!,
-          };
-        })
-        .sort((a, b) => a.n - b.n || a.title.localeCompare(b.title));
-
       await downloadAllQrPdf(
-        pdfItems,
-        isAdmin
-          ? scope === "branches"
-            ? "Admin · Filial QR"
-            : "Admin · Bo‘lim QR"
-          : scope === "branches"
-            ? "Davomat QR · Filiallar"
-            : "Davomat QR · Ofis",
+        source.map((p, i) => ({ n: i + 1, title: p.name, payload: p.payload! })),
+        "BORDO · Davomat QR",
       );
-      toast({
-        title: "PDF yuklandi",
-        description: `${pdfItems.length} ta QR · .pdf fayl saqlandi (har sahifada 1 ta)`,
-      });
+      toast({ title: "PDF yuklandi", description: `${source.length} ta joy QR` });
     } catch (e) {
-      toast({
-        title: "PDF yuklanmadi",
-        description: e instanceof Error ? e.message : "Qayta urinib ko‘ring",
-        variant: "destructive",
-      });
+      toast({ title: "PDF yuklanmadi", description: e instanceof Error ? e.message : "Qayta urinib ko‘ring", variant: "destructive" });
     } finally {
       setBulkPdfBusy(false);
     }
   }
 
-  useEffect(() => {
-    void primeQrCamera();
-  }, []);
-
-  function openAdminScanner() {
-    setQrStream(null);
-    setScanOpen(true);
-  }
-
   async function onAdminScan(detected: string) {
-    const result = await qrPunchDavomat({
-      payload: detected,
-      action: scanAction,
-    });
+    const result = await qrPunchDavomat({ payload: detected, action: scanAction });
     const place = result.branchLabel || result.departmentLabel || null;
     toast({
-      title: result.action === "in" ? "✓ Keldim (QR)" : "✓ Ketdim (QR)",
-      description: place
-        ? `${result.message || "Qabul qilindi"} · ${place}`
-        : result.message || "Admin QR qabul qilindi (lokatsiya shart emas)",
+      title: result.action === "in" ? "Keldim (QR)" : "Ketdim (QR)",
+      description: place ? `${result.message || "Qabul qilindi"} · ${place}` : result.message || "Qabul qilindi",
     });
   }
 
-  if (!methodsQ.isLoading && !canBranch && !canDept) {
+  if (!canView) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-8">
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-5 text-center dark:border-rose-900/50 dark:bg-rose-950/30">
-          <p className="text-sm font-medium text-rose-700 dark:text-rose-300">
-            QR yaratishga ruxsat yo‘q. Filial: mudir/koordinator · Ofis QR: bo‘lim boshlig‘i (faqat ko‘rish) yoki admin.
-          </p>
-          <Link
-            href="/davomat-face"
-            className="mt-3 inline-flex text-sm font-semibold text-primary underline-offset-2 hover:underline"
-          >
-            ← Davomat
-          </Link>
-        </div>
+      <div className="mx-auto max-w-lg px-4 py-10 text-center text-sm text-muted-foreground">
+        Davomat QR ni ko‘rishga ruxsat yo‘q.
       </div>
     );
   }
 
-  if (listError) {
+  if (placesQ.isError) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-8">
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-5 text-center dark:border-rose-900/50 dark:bg-rose-950/30">
-          <p className="text-sm font-medium text-rose-700 dark:text-rose-300">
-            {listErrorMsg ||
-              (scope === "branches"
-                ? "QR filiallari yuklanmadi."
-                : "QR bo‘limlari yuklanmadi.")}
-          </p>
-          <Link
-            href="/davomat-face"
-            className="mt-3 inline-flex text-sm font-semibold text-primary underline-offset-2 hover:underline"
-          >
-            ← Davomat
-          </Link>
-        </div>
+      <div className="mx-auto max-w-lg px-4 py-10 text-center text-sm text-rose-700">
+        {(placesQ.error as Error)?.message || "Joylar yuklanmadi"}
       </div>
     );
   }
-
-  /** Ofis QR id=0 — Boolean(0) false bo‘lmasin */
-  const canIssue = canEditQr && selectedId != null && !issue.isPending;
-  const canRevoke = canEditQr && selectedId != null && Boolean(selected?.hasActiveQr) && !revoke.isPending;
-  const entityLabel = scope === "branches" ? "filial" : "bo‘lim";
-  const showTabs = canBranch && canDept;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 px-4 py-5 pb-28 sm:px-6 lg:px-8">
-      <header className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <QrCode className="h-5 w-5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-              {isAdmin ? "Admin · Davomat QR" : "Davomat QR"}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {adminQrAnywhere
-                ? "Filial va bo‘lim QR · istalgan QR skaner"
-                : isMudir
-                  ? "Filial QR — faqat ko‘rish va yuklab olish"
-                  : isKoordinator
-                    ? "O‘z filiallaringiz uchun QR yaratish yoki yangilash"
-                    : scope === "departments" && !canEditDept
-                      ? "Ofis QR — faqat ko‘rish va yuklab olish"
-                      : scope === "branches"
-                        ? "Filial QR yaratish, ko‘rish va yuklab olish"
-                        : "Ofis QR yaratish, ko‘rish va yuklab olish"}
-            </p>
-          </div>
-          {items.length > 0 ? (
-            <div className="flex items-center gap-2 text-[11px] font-medium">
-              <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-emerald-700 dark:text-emerald-300">
-                Faol {activeCount}
-              </span>
-              <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
-                Jami {items.length}
-              </span>
-            </div>
-          ) : null}
+    <div className="mx-auto max-w-5xl space-y-5 px-4 py-5 pb-28 sm:px-6">
+      <header className="flex flex-wrap items-start gap-3">
+        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <QrCode className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Davomat QR</h1>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            QR ochilgan joyga bog‘lanadi. Xodim shu joy hududida turib skaner qilsa, keldi yoki ketdi shu joyga yoziladi.
+          </p>
         </div>
-        <p className="max-w-3xl text-[13px] leading-relaxed text-muted-foreground">
-          {isMudir
-            ? "QR faqat admin yoki koordinator yaratadi. Siz faqat ko‘rasiz va PDF/PNG yuklab olasiz."
-            : isKoordinator
-              ? "Faqat o‘z tarmog‘ingizdagi filiallar. QR yo‘q bo‘lsa — «QR yaratish», bor bo‘lsa — «Yangi QR»."
-              : scope === "branches"
-                ? "QR yaratish: faqat admin va koordinator. Mudir faqat ko‘radi."
-                : !canEditDept
-                  ? "Ofis QR ni ko‘rish va PDF/PNG yuklab olish mumkin. Yangi yaratish yoki o‘chirish — faqat admin."
-                  : "Ofis QR — faqat ofis xodimlari (100 m). Mudir, farmasevt, stajyor — o‘z filial QR / Face ID."}
-        </p>
+        <div className="flex gap-2 text-[11px] font-medium">
+          <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-emerald-700">Faol {active.length}</span>
+          <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">Joy {places.length}</span>
+        </div>
       </header>
 
-      {showTabs ? (
-        <div
-          role="tablist"
-          aria-label="QR turi"
-          className="grid grid-cols-2 gap-1 rounded-2xl border border-border bg-muted/30 p-1"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={scope === "branches"}
-            onClick={() => setScope("branches")}
-            className={cn(
-              "rounded-xl px-3 py-2.5 text-sm font-semibold transition",
-              scope === "branches"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            Filiallar
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={scope === "departments"}
-            onClick={() => setScope("departments")}
-            className={cn(
-              "rounded-xl px-3 py-2.5 text-sm font-semibold transition",
-              scope === "departments"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            Ofis QR
-          </button>
-        </div>
-      ) : null}
-
-      {adminQrAnywhere ? (
-        <section className="rounded-2xl border border-sky-200/80 bg-sky-50/60 p-4 shadow-sm dark:border-sky-900/40 dark:bg-sky-950/25 sm:p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      {canEdit ? (
+        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-600 text-white">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
                 <ScanLine className="h-4 w-4" />
               </span>
-              <div className="min-w-0">
-                <h2 className="text-base font-semibold text-foreground">Admin QR scanner</h2>
-                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  Istalgan filial yoki bo‘lim QR · lokatsiya shart emas · faqat admin
-                </p>
+              <div>
+                <h2 className="text-sm font-semibold">Tekshiruv skaneri</h2>
+                <p className="text-xs text-muted-foreground">Admin joy hududisiz ham sinab ko‘radi</p>
               </div>
             </div>
-            <div className="flex w-full max-w-xl flex-col gap-2 lg:w-[26rem]">
-              <div
-                role="group"
-                aria-label="Davomat turi"
-                className="grid grid-cols-2 gap-1 rounded-2xl border border-border/80 bg-background/80 p-1"
-              >
+            <div className="flex w-full max-w-md flex-col gap-2 sm:w-auto">
+              <div className="grid grid-cols-2 gap-1 rounded-xl border bg-muted/40 p-1">
                 <button
                   type="button"
                   onClick={() => setScanAction("in")}
                   className={cn(
-                    "rounded-xl px-3 py-2.5 text-sm font-semibold transition",
-                    scanAction === "in"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    "rounded-lg px-3 py-2 text-sm font-semibold",
+                    scanAction === "in" ? "bg-primary text-primary-foreground" : "text-muted-foreground",
                   )}
                 >
                   Keldim
@@ -647,23 +242,16 @@ export default function DavomatQrPage({ adminMode = false }: Props) {
                   type="button"
                   onClick={() => setScanAction("out")}
                   className={cn(
-                    "rounded-xl px-3 py-2.5 text-sm font-semibold transition",
-                    scanAction === "out"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    "rounded-lg px-3 py-2 text-sm font-semibold",
+                    scanAction === "out" ? "bg-primary text-primary-foreground" : "text-muted-foreground",
                   )}
                 >
                   Ketdim
                 </button>
               </div>
-              <Button
-                type="button"
-                size="lg"
-                className="h-11 w-full gap-2 rounded-2xl shadow-sm"
-                onClick={() => openAdminScanner()}
-              >
-                <ScanLine className="h-5 w-5" />
-                QR scanner — skaner qiling
+              <Button type="button" className="h-10 gap-2 rounded-xl" onClick={() => setScanOpen(true)}>
+                <ScanLine className="h-4 w-4" />
+                Skaner qilish
               </Button>
             </div>
           </div>
@@ -671,350 +259,188 @@ export default function DavomatQrPage({ adminMode = false }: Props) {
       ) : null}
 
       <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-base font-semibold text-foreground">
-            {scope === "branches" ? "Filialni tanlang" : "Ofis QR"}
-          </h2>
-          {selected ? (
-            <span
-              className={cn(
-                "rounded-full px-2.5 py-1 text-[11px] font-semibold",
-                selected.hasActiveQr
-                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                  : "bg-muted text-muted-foreground",
-              )}
-            >
-              {selected.hasActiveQr ? `Tanlangan · Faol v${selected.version}` : "Tanlangan · Nofaol"}
-            </span>
-          ) : null}
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-base font-semibold">Joyni oching</h2>
+          <Link href="/admin/davomat-joylar" className="text-xs font-medium text-primary underline-offset-2 hover:underline">
+            Joylar
+          </Link>
         </div>
-
-        {listLoading ? (
+        {placesQ.isLoading ? (
           <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Yuklanmoqda…
           </div>
-        ) : items.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-border px-3 py-8 text-center text-sm text-muted-foreground">
-            {scope === "branches"
-              ? "Filial topilmadi (GPS bo‘lishi shart)."
-              : "Ofis QR yuklanmadi."}
+        ) : places.length === 0 ? (
+          <p className="rounded-xl border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">
+            Hali davomat joyi yo‘q. Avval joy qo‘shing, keyin shu yerda QR yarating.
           </p>
         ) : (
-          <div className="grid max-h-[16rem] gap-1.5 overflow-y-auto rounded-2xl border border-border/70 bg-muted/20 p-1.5 sm:max-h-none sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {items.map((b, idx) => {
-              const on = selectedId === b.id;
-              const sharedOffice =
-                b.id === 0 || Boolean((b as { sharedOffice?: boolean }).sharedOffice);
-              const displayN = sharedOffice
-                ? null
-                : items[0]?.id === 0
-                  ? idx
-                  : idx + 1;
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {places.map((place) => {
+              const on = selectedId === place.id;
               return (
                 <button
-                  key={b.id}
+                  key={place.id}
                   type="button"
-                  onClick={() => setSelectedId(b.id)}
+                  onClick={() => setSelectedId(place.id)}
                   className={cn(
-                    "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition",
-                    on
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : sharedOffice
-                        ? "bg-emerald-50 text-foreground ring-1 ring-emerald-200/80 hover:bg-emerald-100/80 dark:bg-emerald-950/30 dark:ring-emerald-800/50"
-                        : "bg-background/90 text-foreground hover:bg-muted",
+                    "flex items-center gap-3 rounded-xl px-3 py-3 text-left transition",
+                    on ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted/40 hover:bg-muted",
                   )}
                 >
                   <span
                     className={cn(
-                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold tabular-nums",
-                      on
-                        ? "bg-white/15"
-                        : b.hasActiveQr
-                          ? "bg-emerald-500/15 text-emerald-700"
-                          : sharedOffice
-                            ? "bg-emerald-500/20 text-emerald-800"
-                            : "bg-muted text-muted-foreground",
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                      on ? "bg-white/15" : place.hasActiveQr ? "bg-emerald-500/15 text-emerald-700" : "bg-background text-muted-foreground",
                     )}
                   >
-                    {sharedOffice ? "O" : displayN}
+                    {place.hasActiveQr ? <CheckCircle2 className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold">
-                      {sharedOffice ? b.name : `${displayN}. ${b.name}`}
+                      {place.name}
+                      {place.isMain ? " · asosiy" : ""}
                     </span>
-                    <span
-                      className={cn(
-                        "block truncate text-[11px]",
-                        on ? "text-primary-foreground/80" : "text-muted-foreground",
-                      )}
-                    >
-                      {sharedOffice
-                        ? b.hasActiveQr
-                          ? `Umumiy ofis · Faol v${b.version}`
-                          : "Umumiy ofis · QR yo‘q"
-                        : b.hasActiveQr
-                          ? `Faol · v${b.version}`
-                          : "QR yo‘q"}
+                    <span className={cn("block truncate text-[11px]", on ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                      {place.radiusMeters} m
+                      {place.hasActiveQr ? ` · QR v${place.version}` : " · QR yo‘q"}
+                      {!place.hasCoords ? " · koordinata yo‘q" : ""}
                     </span>
-                  </span>
-                  <span
-                    className={cn(
-                      "hidden h-5 w-5 shrink-0 items-center justify-center sm:flex",
-                      on
-                        ? "text-primary-foreground/80"
-                        : b.hasActiveQr
-                          ? "text-emerald-600"
-                          : "text-muted-foreground/70",
-                    )}
-                    aria-hidden
-                  >
-                    {b.hasActiveQr ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
                   </span>
                 </button>
               );
             })}
           </div>
         )}
+      </section>
 
-        <div className="mt-4 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
-          {canEditQr ? (
-            <Button
-              type="button"
-              size="lg"
-              className="h-11 w-full max-w-xs gap-2 rounded-2xl sm:w-auto sm:min-w-[12rem]"
-              disabled={!canIssue}
-              onClick={() => {
-                if (selectedId == null) return;
-                issue.mutate(selectedId);
-              }}
-            >
-              {issue.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              {selected?.hasActiveQr ? "Yangi QR" : "QR yaratish"}
-            </Button>
-          ) : null}
-          <Button
-            type="button"
-            size="lg"
-            variant="outline"
-            className="h-11 w-full max-w-xs gap-2 rounded-2xl sm:w-auto sm:min-w-[12rem]"
-            disabled={bulkPdfBusy || galleryLoading || (gallery.length === 0 && activeCount === 0)}
-            onClick={() => void onDownloadAllPdf()}
-          >
-            {bulkPdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-            PDF — barcha QR
-          </Button>
-          {canEditQr ? (
-            <Button
-              type="button"
-              size="lg"
-              variant="destructive"
-              className={cn(
-                "h-11 w-full max-w-xs gap-2 rounded-2xl sm:w-auto sm:min-w-[10rem]",
-                !canRevoke && "opacity-45",
+      {selected ? (
+        <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+          <div className="flex flex-col items-center gap-6 p-5 sm:p-8 md:flex-row md:items-start md:justify-center">
+            <div className="rounded-[1.4rem] border bg-white p-4 shadow-sm">
+              {selected.payload ? (
+                <QrCanvasItem payload={selected.payload} />
+              ) : (
+                <div className="flex h-[min(280px,72vw)] w-[min(280px,72vw)] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+                  <QrCode className="h-8 w-8" />
+                  Bu joyda hali QR yo‘q
+                </div>
               )}
-              disabled={!canRevoke}
-              onClick={() => {
-                if (selectedId == null) return;
-                if (!window.confirm(`Bu ${entityLabel} QR ni butunlay bekor qilasizmi?`)) return;
-                revoke.mutate(selectedId);
-              }}
-            >
-              {revoke.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-              O‘chirish
-            </Button>
-          ) : null}
-        </div>
-        {canEditQr && needsReissue && selectedId != null ? (
-          <p className="mt-2 text-center text-[11px] text-amber-700 dark:text-amber-300">
-            Tanlangan {entityLabel}da eski QR payload yo‘q — «Yangi QR» bosing.
-          </p>
-        ) : canEditQr && selected?.hasActiveQr ? (
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            «Yangi QR» eski kodni bekor qiladi. Barcha QR lar pastda ketma-ket ko‘rinadi.
-          </p>
-        ) : canEditQr && selected ? (
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            Tanlangan {entityLabel}da hali QR yo‘q — «QR yaratish» ni bosing.
-          </p>
-        ) : isMudir && selected && !selected.hasActiveQr ? (
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            Hali QR yaratilmagan — koordinator yoki admindan so‘rang.
-          </p>
-        ) : isMudir ? (
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            Siz faqat QR ni ko‘rasiz va yuklab olasiz.
-          </p>
-        ) : !canEditQr && scope === "departments" ? (
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            Faqat ko‘rish va yuklab olish. Yangi QR yaratish — admin.
-          </p>
-        ) : isKoordinator && selected && !selected.hasActiveQr ? (
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            Bu filialda QR yo‘q — «QR yaratish» ni bosing.
-          </p>
-        ) : isKoordinator && selected?.hasActiveQr ? (
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            «Yangi QR» eski kodni almashtiradi.
-          </p>
-        ) : null}
-      </section>
-
-      <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-          <div>
-            <h2 className="text-base font-semibold text-foreground">Barcha QR kodlar</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Faol {scope === "branches" ? "filial" : "bo‘lim"} QR lari · PDF da har sahifada 1 ta katta QR
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
-              {galleryLoading ? "Yuklanmoqda…" : `${gallery.length} ta`}
-            </span>
-            <Button
-              type="button"
-              size="sm"
-              className="h-9 gap-1.5 rounded-xl"
-              disabled={bulkPdfBusy || galleryLoading || (gallery.length === 0 && activeCount === 0)}
-              onClick={() => void onDownloadAllPdf()}
-            >
-              {bulkPdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-              PDF — barcha QR
-            </Button>
-          </div>
-        </div>
-
-        {galleryLoading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            QR lar yuklanmoqda…
-          </div>
-        ) : gallery.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-muted/20 px-4 py-14 text-center">
-            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-              <QrCode className="h-6 w-6" />
-            </span>
-            <p className="max-w-sm text-sm text-muted-foreground">
-              Hali faol QR yo‘q. Yuqoridan {entityLabel}ni tanlab «QR yaratish» ni bosing — shu yerda
-              chiqadi.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {gallery.map((item, idx) => {
-              const highlighted = selectedId === item.id;
-              const n = idx + 1;
-              return (
-                <article
-                  key={`${scope}-${item.id}`}
-                  className={cn(
-                    "rounded-2xl border p-4 transition sm:p-5",
-                    highlighted
-                      ? "border-primary/40 bg-primary/5 shadow-sm"
-                      : "border-border/80 bg-muted/10",
-                  )}
+            </div>
+            <div className="w-full max-w-sm space-y-3 text-center md:pt-2 md:text-left">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Ochilgan joy</p>
+                <h2 className="mt-1 text-2xl font-semibold tracking-tight">{selected.name}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Radius {selected.radiusMeters} m
+                  {selected.version != null ? ` · versiya ${selected.version}` : ""}
+                </p>
+                {selected.latitude != null && selected.longitude != null ? (
+                  <p className="mt-1 font-mono text-[12px] text-muted-foreground">
+                    {formatCoord(selected.latitude, selected.longitude)}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-amber-700">Koordinata yo‘q — skaner ishlamaydi. Avval joyni saqlang.</p>
+                )}
+              </div>
+              <p className="text-[13px] leading-relaxed text-muted-foreground">
+                Chop etib joyga osing. Xodim o‘z joyining QR ini, shu radius ichida skaner qiladi.
+              </p>
+              <div className="flex flex-wrap justify-center gap-2 md:justify-start">
+                {canEdit ? (
+                  <Button
+                    type="button"
+                    className="h-10 gap-2 rounded-xl"
+                    disabled={issue.isPending}
+                    onClick={() => issue.mutate(selected.id)}
+                  >
+                    {issue.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    {selected.hasActiveQr ? "Yangi QR" : "QR yaratish"}
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 gap-2 rounded-xl"
+                  disabled={!selected.payload}
+                  onClick={() => void onDownloadPng(selected)}
                 >
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="truncate text-sm font-semibold text-foreground sm:text-base">
-                      {n}. {item.name}
-                      {item.version != null ? (
-                        <span className="ml-1.5 font-medium text-muted-foreground">· v{item.version}</span>
-                      ) : null}
-                    </h3>
-                    <span
-                      className={cn(
-                        "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold",
-                        item.payload
-                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                          : "bg-amber-500/15 text-amber-800 dark:text-amber-200",
-                      )}
-                    >
-                      {item.payload ? "Faol" : "Qayta yaratish kerak"}
-                    </span>
-                  </div>
-
-                  {item.payload ? (
-                    <div className="flex flex-col items-center gap-4 md:flex-row md:items-start md:justify-center md:gap-10">
-                      <div className="rounded-[1.25rem] border border-border bg-white p-3 shadow-sm">
-                        <QrCanvasItem payload={item.payload} size={240} />
-                      </div>
-                      <div className="flex w-full max-w-xs flex-col items-center gap-2 md:items-stretch md:pt-2">
-                        <p className="text-center text-[12px] leading-relaxed text-muted-foreground md:text-left">
-                          Saqlangan QR — yangi yaratilmaguncha shu ko‘rinishda qoladi.
-                        </p>
-                        <div className="flex w-full flex-wrap justify-center gap-2 md:justify-start">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-10 min-w-[5.5rem] flex-1 gap-1.5 rounded-xl"
-                            onClick={() => void onDownloadPng(item.payload!, item.id)}
-                          >
-                            <FileImage className="h-4 w-4" />
-                            PNG
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-10 min-w-[5.5rem] flex-1 gap-1.5 rounded-xl"
-                            onClick={() => void onDownloadPdf(item.payload!, item.name, item.id)}
-                          >
-                            <FileText className="h-4 w-4" />
-                            PDF
-                          </Button>
-                        </div>
-                        <Button
-                          type="button"
-                          className="h-10 w-full gap-2 rounded-xl"
-                          onClick={() => void onDownloadPng(item.payload!, item.id)}
-                        >
-                          <Download className="h-4 w-4" />
-                          Yuklab olish
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="h-9 text-xs text-muted-foreground"
-                          onClick={() => setSelectedId(item.id)}
-                        >
-                          Shu {entityLabel}ni tanlash
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-4 text-center text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
-                      {canEditQr
-                        ? `Payload yo‘q. ${entityLabel}ni tanlab «Yangi QR» bosing.`
-                        : "Payload yo‘q. Yangi QR yaratish uchun adminga murojaat qiling."}
-                    </div>
-                  )}
-                </article>
-              );
-            })}
+                  <FileImage className="h-4 w-4" />
+                  PNG
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 gap-2 rounded-xl"
+                  disabled={!selected.payload}
+                  onClick={() => void onDownloadPdf(selected)}
+                >
+                  <FileText className="h-4 w-4" />
+                  PDF
+                </Button>
+                {canEdit ? (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="h-10 gap-2 rounded-xl"
+                    disabled={!selected.hasActiveQr || revoke.isPending}
+                    onClick={() => {
+                      if (!window.confirm(`«${selected.name}» QR ini bekor qilasizmi?`)) return;
+                      revoke.mutate(selected.id);
+                    }}
+                  >
+                    {revoke.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    O‘chirish
+                  </Button>
+                ) : null}
+              </div>
+              {selected.needsReissue ? (
+                <p className="text-xs text-amber-700">Eski QR ochilmaydi — «Yangi QR» bosing.</p>
+              ) : null}
+            </div>
           </div>
-        )}
-      </section>
-
-      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-1 text-sm">
-        <Link href="/davomat-face" className="font-medium text-primary underline-offset-2 hover:underline">
-          ← Davomat sahifasi
-        </Link>
-        {!adminMode && isAdmin ? (
-          <Link href="/admin/davomat-qr" className="font-medium text-primary underline-offset-2 hover:underline">
-            Admin QR boshqaruvi →
-          </Link>
-        ) : null}
-      </div>
-
-      {adminQrAnywhere ? (
-        <QrScanDialog
-          open={scanOpen}
-          stream={qrStream}
-          onOpenChange={setScanOpen}
-          title={scanAction === "out" ? "Ketdim — QR scanner" : "Keldim — QR scanner"}
-          description="Istalgan filial yoki bo‘lim QR · lokatsiya shart emas · skaner qiling"
-          onDetected={onAdminScan}
-        />
+        </section>
       ) : null}
+
+      {active.length > 1 ? (
+        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <h2 className="text-base font-semibold">Barcha joy QR lari</h2>
+            <Button type="button" size="sm" variant="outline" className="h-9 gap-1.5 rounded-xl" disabled={bulkPdfBusy} onClick={() => void onDownloadAllPdf()}>
+              {bulkPdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              PDF
+            </Button>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {active.map((place) => (
+              <button
+                key={place.id}
+                type="button"
+                onClick={() => setSelectedId(place.id)}
+                className={cn(
+                  "flex items-center gap-3 rounded-2xl border p-3 text-left",
+                  selectedId === place.id ? "border-primary/40 bg-primary/5" : "border-border",
+                )}
+              >
+                <div className="rounded-xl border bg-white p-1.5">
+                  <QrCanvasItem payload={place.payload!} size={96} />
+                </div>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold">{place.name}</span>
+                  <span className="block text-[11px] text-muted-foreground">{place.radiusMeters} m · v{place.version}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <QrScanDialog
+        open={scanOpen}
+        onOpenChange={setScanOpen}
+        stream={qrStream}
+        title={scanAction === "in" ? "Keldim" : "Ketdim"}
+        onDetected={(text) => onAdminScan(text)}
+      />
     </div>
   );
 }

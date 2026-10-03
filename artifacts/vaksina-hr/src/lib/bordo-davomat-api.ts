@@ -13,6 +13,7 @@ export type BordoPlace = {
   isMain: boolean;
   active: boolean;
   assignments: BordoAssign;
+  qr?: { version: number; payload: string | null } | null;
 };
 
 export type BordoShift = {

@@ -1158,6 +1158,24 @@ CREATE UNIQUE INDEX IF NOT EXISTS department_attendance_qr_qr_id_uidx ON departm
 CREATE INDEX IF NOT EXISTS department_attendance_qr_dept_idx ON department_attendance_qr (department_id);
 CREATE INDEX IF NOT EXISTS department_attendance_qr_status_idx ON department_attendance_qr (status);
 
+CREATE TABLE IF NOT EXISTS place_attendance_qr (
+  id SERIAL PRIMARY KEY,
+  qr_id TEXT NOT NULL,
+  place_id INTEGER NOT NULL,
+  place_label TEXT,
+  token_hash TEXT NOT NULL,
+  token_payload TEXT,
+  version INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_by_id INTEGER,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ,
+  revoked_at TIMESTAMPTZ
+);
+CREATE UNIQUE INDEX IF NOT EXISTS place_attendance_qr_qr_id_uidx ON place_attendance_qr (qr_id);
+CREATE INDEX IF NOT EXISTS place_attendance_qr_place_idx ON place_attendance_qr (place_id);
+CREATE INDEX IF NOT EXISTS place_attendance_qr_status_idx ON place_attendance_qr (status);
+
 CREATE TABLE IF NOT EXISTS attendance_punch_audit (
   id SERIAL PRIMARY KEY,
   employee_id INTEGER,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MapPin, Plus, Trash2 } from "lucide-react";
+import { FileImage, FileText, MapPin, Plus, QrCode, Trash2 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
@@ -20,6 +20,7 @@ import {
   type BordoShift,
 } from "../../lib/bordo-davomat-api";
 import { gpsInputError, parseGpsText } from "../../lib/pharmacy-staff-api";
+import { downloadQrPdf, downloadQrPng, renderQrToCanvas } from "../../lib/qr-render";
 
 const emptyAssign = (): BordoAssign => ({ departments: [], roles: [], userIds: [] });
 
@@ -55,6 +56,28 @@ function formatGpsText(lat: number, lng: number): string {
 function coordText(lat: number | null, lng: number | null): string {
   if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) return "";
   return formatGpsText(lat, lng);
+}
+
+function PlaceQr({ payload }: { payload: string }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas || !payload) return;
+    let cancelled = false;
+    void (async () => {
+      await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+      if (cancelled) return;
+      try {
+        await renderQrToCanvas(canvas, payload, 220);
+      } catch {
+        /* paint */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [payload]);
+  return <canvas ref={ref} width={220} height={220} className="h-[220px] w-[220px] max-w-full" />;
 }
 
 function readCoord(raw: string): { latitude: number; longitude: number } {
@@ -136,10 +159,10 @@ export default function DavomatJoylarPage() {
       if (!body.name) throw new Error("Joy nomini yozing");
       return createBordoPlace(body);
     },
-    onSuccess: () => {
-      nameTouched.current = false;
-      setPlaceForm({ name: "", coord: "", radiusMeters: "100" });
-      toast({ title: "Joy saqlandi" });
+    onSuccess: (created) => {
+      nameTouched.current = true;
+      setPlaceId(created.id);
+      toast({ title: "Joy saqlandi", description: "Shu joy uchun QR yaratildi." });
       refresh();
     },
     onError: fail,
@@ -289,7 +312,7 @@ export default function DavomatJoylarPage() {
         <h1 className="mt-1 text-2xl font-semibold">Davomat joylari</h1>
         <p className="mt-1 max-w-2xl text-sm text-white/80">
           Asosiy ofis standart joy. Boshqa lokatsiya qo‘shing, bo‘lim, lavozim yoki aniq xodimga bering.
-          Smena shu joy ichida ochiladi va kim qaysi soatda kelishi shunga qarab hisoblanadi.
+          Joy saqlanganda shu joy uchun QR yaratiladi. Xodim shu joy hududida turib shu kodni skaner qiladi.
         </p>
       </div>
 
@@ -388,6 +411,46 @@ export default function DavomatJoylarPage() {
               </div>
             </CardContent>
           </Card>
+
+          {selected?.qr?.payload ? (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base text-[#6e1632]">
+                  <QrCode className="h-4 w-4" />
+                  {selected.name} QR
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+                <div className="rounded-2xl border border-[#e7c5d0] bg-white p-3">
+                  <PlaceQr payload={selected.qr.payload} />
+                </div>
+                <div className="space-y-2 text-center sm:pt-2 sm:text-left">
+                  <p className="text-sm text-muted-foreground">
+                    Joy yaratilganda QR o‘zi chiqadi. Skaner faqat shu joy radiusida, {selected.radiusMeters} m ichida ishlaydi.
+                    {selected.qr.version ? ` Versiya ${selected.qr.version}.` : ""}
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9 border-[#e7c5d0] text-[#6e1632]"
+                      onClick={() => void downloadQrPng(selected.qr!.payload!, `davomat-qr-${selected.id}.png`)}
+                    >
+                      <FileImage className="mr-1 h-4 w-4" /> PNG
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9 border-[#e7c5d0] text-[#6e1632]"
+                      onClick={() => void downloadQrPdf(selected.qr!.payload!, selected.name, `davomat-qr-${selected.id}.pdf`)}
+                    >
+                      <FileText className="mr-1 h-4 w-4" /> PDF
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
 
           {selected ? (
             <Card>
@@ -539,6 +602,21 @@ export default function DavomatJoylarPage() {
   );
 }
 
+function formatHmTyping(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+}
+
+function normalizeHmInput(raw: string): string | null {
+  const match = /^(\d{1,2}):(\d{1,2})$/.exec(raw.trim());
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return null;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
 function SoatMaydoni({
   label,
   value,
@@ -548,36 +626,38 @@ function SoatMaydoni({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const [hour, minute] = (value || "09:00").split(":");
-  const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
-  const minutes = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
-  const set = (h: string, m: string) => onChange(`${h}:${m}`);
+  const [draft, setDraft] = useState(value || "09:00");
+
+  useEffect(() => {
+    setDraft(value || "09:00");
+  }, [value]);
+
   return (
     <div className="space-y-1">
       <Label>{label}</Label>
-      <div className="flex items-center gap-1">
-        <select
-          aria-label={`${label} soati`}
-          value={hours.includes(hour || "") ? hour : "09"}
-          onChange={(e) => set(e.target.value, minutes.includes(minute || "") ? minute! : "00")}
-          className="h-9 rounded-md border border-[#e7c5d0] bg-white px-2 text-sm text-[#4a1224]"
-        >
-          {hours.map((h) => (
-            <option key={h} value={h}>{h}</option>
-          ))}
-        </select>
-        <span className="text-[#6e1632]">:</span>
-        <select
-          aria-label={`${label} daqiqasi`}
-          value={minutes.includes(minute || "") ? minute : "00"}
-          onChange={(e) => set(hour || "09", e.target.value)}
-          className="h-9 rounded-md border border-[#e7c5d0] bg-white px-2 text-sm text-[#4a1224]"
-        >
-          {minutes.map((m) => (
-            <option key={m} value={m}>{m}</option>
-          ))}
-        </select>
-      </div>
+      <Input
+        inputMode="numeric"
+        autoComplete="off"
+        placeholder="09:00"
+        aria-label={label}
+        value={draft}
+        onChange={(e) => {
+          const next = formatHmTyping(e.target.value);
+          setDraft(next);
+          const ready = normalizeHmInput(next);
+          if (ready) onChange(ready);
+        }}
+        onBlur={() => {
+          const ready = normalizeHmInput(draft);
+          if (ready) {
+            setDraft(ready);
+            onChange(ready);
+            return;
+          }
+          setDraft(value || "09:00");
+        }}
+        className="h-9 w-[6.25rem] border-[#e7c5d0] font-mono text-sm tabular-nums tracking-wide"
+      />
     </div>
   );
 }
