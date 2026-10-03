@@ -9,6 +9,8 @@ export const usersTable = pgTable("users", {
   password: text("password").notNull(),
   phone: text("phone"),
   status: text("status").notNull().default("active"), // active|vacant|terminated|on_leave
+  /** Yagona bosh admin — o‘chirib va lavozimini almashtirib bo‘lmaydi */
+  isChief: boolean("is_chief").notNull().default(false),
   /** Telegram user id (string) — bot orqali bog‘langan akkaunt */
   telegramId: text("telegram_id"),
   /** Device security majburiy (enforcementMode=selected) */

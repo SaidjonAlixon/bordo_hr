@@ -201,6 +201,11 @@ async function uniqueLogin(role: string, fullName: string): Promise<string> {
   return `${base}_${Date.now().toString(36).slice(-4)}`;
 }
 
+function adminTitle(role: string, isChief?: boolean | null) {
+  if (role === "admin") return isChief ? "Bosh admin" : "Yordamchi admin";
+  return ROLE_LABEL_UZ[role] || role;
+}
+
 function publicUser(row: {
   id: number;
   fullName: string;
@@ -210,11 +215,13 @@ function publicUser(row: {
   phone: string | null;
   status: string;
   createdAt: Date;
+  isChief?: boolean | null;
 }, departmentName: string | null = null) {
   return {
     id: row.id,
     fullName: row.fullName,
     role: row.role,
+    isChief: Boolean(row.isChief),
     departmentId: row.departmentId,
     departmentName,
     login: row.login,
@@ -241,6 +248,7 @@ router.get("/users", async (req, res): Promise<void> => {
       login: usersTable.login,
       phone: usersTable.phone,
       status: usersTable.status,
+      isChief: usersTable.isChief,
       createdAt: usersTable.createdAt,
     })
     .from(usersTable)
@@ -285,6 +293,7 @@ router.get("/users/export", requireAuth, async (req: AuthRequest, res): Promise<
       password: usersTable.password,
       phone: usersTable.phone,
       status: usersTable.status,
+      isChief: usersTable.isChief,
       createdAt: usersTable.createdAt,
     })
     .from(usersTable)
@@ -359,7 +368,7 @@ router.get("/users/export", requireAuth, async (req: AuthRequest, res): Promise<
     const row = sheet.addRow({
       n: idx + 1,
       fullName: u.fullName,
-      role: ROLE_LABEL_UZ[u.role] || u.role,
+      role: adminTitle(u.role, u.isChief),
       login: u.login,
       password: u.password,
       phone: u.phone || "—",
@@ -684,7 +693,7 @@ router.patch("/users/:id", requireAuth, async (req: AuthRequest, res): Promise<v
 
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
   const [existing] = await db
-    .select({ id: usersTable.id, role: usersTable.role })
+    .select({ id: usersTable.id, role: usersTable.role, isChief: usersTable.isChief })
     .from(usersTable)
     .where(eq(usersTable.id, id))
     .limit(1);
@@ -705,6 +714,16 @@ router.patch("/users/:id", requireAuth, async (req: AuthRequest, res): Promise<v
   if (updates.role && !ALLOWED_ROLES.includes(updates.role as typeof ALLOWED_ROLES[number])) {
     res.status(400).json({ error: "Noto'g'ri rol" });
     return;
+  }
+  if (existing.isChief) {
+    if (updates.role && updates.role !== "admin") {
+      res.status(400).json({ error: "Bosh adminning lavozimini o‘zgartirib bo‘lmaydi" });
+      return;
+    }
+    if (updates.status && String(updates.status) !== "active") {
+      res.status(400).json({ error: "Bosh adminni o‘chirib yoki to‘xtatib bo‘lmaydi" });
+      return;
+    }
   }
   if (updates.status) {
     const st = String(updates.status);
@@ -786,6 +805,15 @@ router.delete("/users/:id", requireAuth, async (req: AuthRequest, res): Promise<
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
   if (req.userId === id) {
     res.status(400).json({ error: "O'zingizni o'chira olmaysiz" });
+    return;
+  }
+  const [target] = await db
+    .select({ isChief: usersTable.isChief })
+    .from(usersTable)
+    .where(eq(usersTable.id, id))
+    .limit(1);
+  if (target?.isChief) {
+    res.status(400).json({ error: "Bosh adminni o‘chirib bo‘lmaydi" });
     return;
   }
 

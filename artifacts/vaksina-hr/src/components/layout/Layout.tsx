@@ -2328,8 +2328,12 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               <div className="min-w-0 flex-1">
                 <span className="app-sidebar-profile-name">{profileDisplayName(user.fullName)}</span>
                 <span className="mt-px flex min-w-0 items-center gap-1.5">
-                  {userRoleLabel(user.role) ? (
-                    <span className="truncate text-[10px] font-medium text-slate-600 dark:text-white/50">{userRoleLabel(user.role)}</span>
+                  {user.role === 'admin' || userRoleLabel(user.role) ? (
+                    <span className="truncate text-[10px] font-medium text-slate-600 dark:text-white/50">
+                      {user.role === 'admin'
+                        ? ((user as { isChief?: boolean }).isChief ? 'Bosh admin' : 'Yordamchi admin')
+                        : userRoleLabel(user.role)}
+                    </span>
                   ) : null}
                   <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />

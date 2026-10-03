@@ -31,6 +31,7 @@ export async function archiveAndDeleteUser(
 ): Promise<boolean> {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (!user) return false;
+  if (user.isChief) throw new Error("Bosh adminni o‘chirib bo‘lmaydi");
 
   const [emp] = await db
     .select({
@@ -313,9 +314,9 @@ async function employeeIdsForUser(userId: number): Promise<number[]> {
  * Boshqa odamlarga berilgan topshiriqlar qoladi, lekin bu odamning ismi ulanmaydi.
  */
 export async function purgeUserCompletely(userId: number): Promise<boolean> {
-  const [user] = await db.select({ id: usersTable.id, role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  const [user] = await db.select({ id: usersTable.id, role: usersTable.role, isChief: usersTable.isChief }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (!user) return false;
-  if (user.role === "admin") throw new Error("Adminni butunlay o‘chirib bo‘lmaydi");
+  if (user.isChief) throw new Error("Bosh adminni o‘chirib bo‘lmaydi");
 
   const empIds = await employeeIdsForUser(userId);
   if (empIds.length) {

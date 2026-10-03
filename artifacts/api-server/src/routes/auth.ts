@@ -36,6 +36,7 @@ async function getUserWithDept(userId: number) {
       login: usersTable.login,
       phone: usersTable.phone,
       status: usersTable.status,
+      isChief: usersTable.isChief,
       deviceSecurityEnforced: usersTable.deviceSecurityEnforced,
       createdAt: usersTable.createdAt,
     })

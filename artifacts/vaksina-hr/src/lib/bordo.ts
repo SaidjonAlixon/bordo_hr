@@ -25,7 +25,7 @@ export function isHiddenBordoPath(path: string): boolean {
 
 /** Lavozimlar — foydalanuvchi yaratish. Shtat soni yo‘q, faqat lavozim nomi. */
 export const BORDO_ROLES: { value: string; label: string; department: string }[] = [
-  { value: "admin", label: "Admin", department: "Rahbariyat" },
+  { value: "admin", label: "Yordamchi admin", department: "Rahbariyat" },
   { value: "director", label: "Direktor", department: "Rahbariyat" },
   { value: "hr_direktor", label: "HRD", department: "Rahbariyat" },
   { value: "showroom", label: "Showroom jamoasi", department: "Showroom hodimlari" },

@@ -1661,6 +1661,7 @@ CREATE INDEX IF NOT EXISTS mobile_att_audit_action_idx ON mobile_attendance_audi
     await ensureRevisionVisitsSchema();
     await ensureWarehouseShiftsSchema();
     await ensureBordoPlacesSchema();
+    await ensureChiefAdmin();
     await ensureAttendanceSealsSchema();
   } catch (err) {
     logger.error({ err }, "Failed to ensure DB schema");
@@ -1825,6 +1826,40 @@ CREATE INDEX IF NOT EXISTS bordo_shift_asg_user_idx ON bordo_shift_assignments (
 CREATE INDEX IF NOT EXISTS bordo_shift_asg_role_idx ON bordo_shift_assignments (role);
 CREATE INDEX IF NOT EXISTS bordo_shift_asg_dept_idx ON bordo_shift_assignments (department_id);
 `;
+
+/** Bitta o‘chirilmaydigan bosh admin. Qolgan adminlar yordamchi. */
+export async function ensureChiefAdmin(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query(
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS is_chief BOOLEAN NOT NULL DEFAULT FALSE`,
+    );
+    const telegramId = String(process.env.TELEGRAM_ADMIN_ID || "").trim();
+    await client.query(
+      `UPDATE users SET is_chief = TRUE
+       WHERE NOT EXISTS (SELECT 1 FROM users WHERE is_chief = TRUE)
+         AND id = (
+           SELECT id FROM users
+           WHERE role = 'admin'
+           ORDER BY
+             CASE
+               WHEN $1 <> '' AND telegram_id = $1 THEN 0
+               WHEN login = 'bordo_admin' THEN 1
+               ELSE 2
+             END,
+             id
+           LIMIT 1
+         )`,
+      [telegramId],
+    );
+    logger.info("Bosh admin belgilandi");
+  } catch (err) {
+    logger.warn({ err }, "Bosh admin belgilanmadi");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
 
 export async function ensureBordoPlacesSchema(): Promise<void> {
   const client = await pool.connect();

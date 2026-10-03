@@ -70,6 +70,11 @@ function rolesForDepartment(name: string) {
   return ROLES.map((r) => r.value).filter((role) => normDept(ROLE_DEPARTMENT[role] || "") === key);
 }
 
+function shownRole(role: string, isChief?: boolean) {
+  if (role === 'admin') return isChief ? 'Bosh admin' : 'Yordamchi admin';
+  return userRoleLabel(role) || role;
+}
+
 function primaryRoleForDepartment(name: string): string | null {
   const roles = rolesForDepartment(name);
   const key = normDept(name);
@@ -734,7 +739,7 @@ export default function AdminUsersPage() {
                         {u.phone && <div className="text-xs text-muted-foreground">{u.phone}</div>}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge variant="secondary">{userRoleLabel(u.role) || u.role}</Badge>
+                        <Badge variant="secondary">{shownRole(u.role, (u as { isChief?: boolean }).isChief)}</Badge>
                       </td>
                       <td className="px-4 py-3 font-mono text-xs">{u.login}</td>
                       <td className="px-4 py-3 text-muted-foreground">{u.departmentName || '—'}</td>
@@ -804,7 +809,7 @@ export default function AdminUsersPage() {
                               <KeyRound className="h-4 w-4" />
                             )}
                           </Button>
-                          {canDelete ? (
+                          {canDelete && !(u as { isChief?: boolean }).isChief ? (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -917,6 +922,9 @@ export default function AdminUsersPage() {
                       return (
                         <SelectGroup key={dept}>
                           <SelectLabel>{dept}</SelectLabel>
+                          {dept === 'Rahbariyat' ? (
+                            <SelectItem value="admin">Yordamchi admin</SelectItem>
+                          ) : null}
                           {items.map((r) => (
                             <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
                           ))}
@@ -1011,7 +1019,7 @@ export default function AdminUsersPage() {
               </div>
               <div className="space-y-2">
                 <Label>Rol *</Label>
-                <Select value={role} onValueChange={setRole}>
+                <Select value={role} onValueChange={setRole} disabled={Boolean((editing as { isChief?: boolean } | null)?.isChief)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Rolni tanlang" />
                   </SelectTrigger>
@@ -1019,11 +1027,16 @@ export default function AdminUsersPage() {
                     {positionRoles.map((r) => (
                       <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
                     ))}
-                    {role && !positionRoles.some((r) => r.value === role) ? (
+                    {role === 'admin' ? (
+                      <SelectItem value="admin">{(editing as { isChief?: boolean } | null)?.isChief ? 'Bosh admin' : 'Yordamchi admin'}</SelectItem>
+                    ) : role && !positionRoles.some((r) => r.value === role) ? (
                       <SelectItem value={role}>{ROLES.find((r) => r.value === role)?.label || userRoleLabel(role) || role}</SelectItem>
                     ) : null}
                   </SelectContent>
                 </Select>
+                {(editing as { isChief?: boolean } | null)?.isChief ? (
+                  <p className="text-xs text-muted-foreground">Bosh adminning lavozimini o‘zgartirib bo‘lmaydi.</p>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <Label>Telefon (ixtiyoriy)</Label>
@@ -1046,7 +1059,7 @@ export default function AdminUsersPage() {
               </div>
               <div className="space-y-2">
                 <Label>Holat</Label>
-                <Select value={status} onValueChange={setStatus}>
+                <Select value={status} onValueChange={setStatus} disabled={Boolean((editing as { isChief?: boolean } | null)?.isChief)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Holat" />
                   </SelectTrigger>
